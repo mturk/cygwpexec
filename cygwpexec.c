@@ -606,7 +606,7 @@ static int cygwpexec(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 static int usage(int rv)
 {
     FILE *os = rv == 0 ? stdout : stderr;
-    fprintf(os, "Usage cygspawn [OPTIONS]... PROGRAM [ARGUMENTS]...\n");
+    fprintf(os, "Usage cygwpexec [OPTIONS]... PROGRAM [ARGUMENTS]...\n");
     fprintf(os, "Execute PROGRAM.\n\nOptions are:\n");
     fprintf(os, " -D, --debug      print replaced arguments and environment\n");
     fprintf(os, "                  instead executing PROGRAM.\n");
@@ -621,7 +621,7 @@ static int usage(int rv)
 
 static int version(int license)
 {
-    fprintf(stdout, "cygspawn 2.0.1\n");
+    fprintf(stdout, "cygwpexec 2.0.1\n");
     fprintf(stdout, "Written by Mladen Turk (mturk@redhat.com).\n\n");
     if (license)
         fputs(aslicense, stdout);
@@ -691,5 +691,5 @@ static int cmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     dupwenvp = (wchar_t **)xmalloc((envc + 1) * sizeof(wchar_t *));
     for (i = 0; i < envc; i++)
         dupwenvp[i] = xwcsdup(wenv[i]);
-    return cygspawn(narg, dupwargv, envc, dupwenvp);
+    return cygwpexec(narg, dupwargv, envc, dupwenvp);
 }

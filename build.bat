@@ -19,7 +19,7 @@ rem
 setlocal
 if /i "%~1" == "/gui" (
     set "SUBSYTEM=WINDOWS"
-    set "OUTFILE=cygspawnw.exe"
+    set "OUTFILE=cygwpexecw.exe"
     shift
 ) else (
     set "SUBSYTEM=CONSOLE"
