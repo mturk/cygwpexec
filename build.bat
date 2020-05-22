@@ -15,7 +15,7 @@ rem
 rem Batch script for cygwpexec
 rem
 setlocal
-set "SVER=2.0.1
+set "SVER=2.0.1"
 set "CVER=2,0,1"
 set "CFLAGS=/DSTR_VERSION=\"%SVER%\" %CFLAGS%"
 rem
@@ -30,6 +30,6 @@ rem Clean previous build
 for %%i in (exe obj res pdb) do del /F /Q  cygwpexec.%%i.exe 2>NUL
 rem
 cl /nologo /TC /O2 /Ob2 /Zi /MD /W3 /DWIN32 %CFLAGS% /DUNICODE /D_UNICODE /DCONSOLE /c cygwpexec.c /Fdcygwpexec
-rc /l 0x409 /d "NDEBUG" %RCOPTS% /d STR_VERSION=\"%SVER%\" /d CSV_VERSION=%CVER% cygwpexec.rc
+rc /l 0x409 /n /d "NDEBUG" %RCOPTS% /d STR_VERSION=\"%SVER%\" /d CSV_VERSION=%CVER% cygwpexec.rc
 link /NOLOGO /OPT:REF /INCREMENTAL:NO /SUBSYSTEM:CONSOLE /MACHINE:%MACHINE% %LDFLAGS% cygwpexec.obj cygwpexec.res kernel32.lib psapi.lib %EXTRA_LIBS% /pdb:cygwpexec.pdb /OUT:cygwpexec.exe
 if exist cygwpexec.exe.manifest mt -nologo -manifest cygwpexec.exe.exe.manifest -outputresource:cygwpexec.exe;1

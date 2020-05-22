@@ -43,11 +43,16 @@
 #define XPATH_MAX 16384
 
 static int debug = 0;
-static const char aslicense[] = ""                                          \
-    "Licensed under the Apache License, Version 2.0 (the ""License"");\n"   \
-    "you may not use this file except in compliance with the License.\n"    \
-    "You may obtain a copy of the License at\n\n"                           \
-    "http://www.apache.org/licenses/LICENSE-2.0\n";
+static const char aslicense[] = "\n"                                             \
+    "Licensed under the Apache License, Version 2.0 (the ""License"");\n"        \
+    "you may not use this file except in compliance with the License.\n"         \
+    "You may obtain a copy of the License at\n\n"                                \
+    "http://www.apache.org/licenses/LICENSE-2.0\n\n"                             \
+    "Unless required by applicable law or agreed to in writing, software\n"      \
+    "distributed under the License is distributed on an ""AS IS"" BASIS,\n"      \
+    "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" \
+    "See the License for the specific language governing permissions and\n"      \
+    "limitations under the License.\n";
 
 static wchar_t *cygroot = 0;
 
@@ -516,32 +521,32 @@ static wchar_t *getcygroot(const wchar_t *argroot)
             else if (wchrimatch(r, L"*\\cygwin\\*", &x) == 0) {
                 r[x + 7] = L'\0';
             }
-			else {
-				xfree(r);
-				r = 0;
-			}
+            else {
+                xfree(r);
+                r = 0;
+            }
         }
     }
-	else {
-		wchar_t *s = r;
-		while (*s != L'\0') {
-			if (*s == L'/' || *s == L'\\') {
-				if(*(s + 1) == L'\0')
-					*s = L'\0';
-				else
-					*s = L'\\';
-			}
-			s++;
-		}
-	}
-	if (r != 0) {
-		wchar_t *s = xwcsvcat(r, L"\\bin\\bash.exe", 0);
+    else {
+        wchar_t *s = r;
+        while (*s != L'\0') {
+            if (*s == L'/' || *s == L'\\') {
+                if(*(s + 1) == L'\0')
+                    *s = L'\0';
+                else
+                    *s = L'\\';
+            }
+            s++;
+        }
+    }
+    if (r != 0) {
+        wchar_t *s = xwcsvcat(r, L"\\bin\\bash.exe", 0);
         if (_waccess(s, 0) != 0) {
-			xfree(r);
-			r = 0;
-		}
-		xfree(s);
-	}
+            xfree(r);
+            r = 0;
+        }
+        xfree(s);
+    }
     return r;
 }
 
@@ -637,7 +642,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     int i, rv = 0;
     wchar_t **dupwargv = 0;
     wchar_t **dupwenvp = 0;
-	const wchar_t *crp = 0;
+    const wchar_t *crp = 0;
     int envc = 0;
     int narg = 0;
     int opts = 1;
