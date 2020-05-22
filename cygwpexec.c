@@ -626,7 +626,7 @@ static int usage(int rv)
 
 static int version(int license)
 {
-    fprintf(stdout, "cygwpexec versiom 2.0.1 compiled on %s\n", __DATE__);
+    fprintf(stdout, "cygwpexec versiom %s compiled on %s\n", STR_VERSION, __DATE__);
     if (license)
         fputs(aslicense, stdout);
     return 0;

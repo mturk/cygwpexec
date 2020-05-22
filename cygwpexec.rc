@@ -36,44 +36,16 @@
 #define STR_PRODUCT         "Run windows applications under Cygwin"
 #define STR_INTNAME         "cygwpexec"
 #define STR_BINNAME         STR_INTNAME ".exe"
-#define STR_VERSION         "2.0.1"
-#define CSV_VERSION          2,0,1
 
-#define PRIVATE_BUILD       0
-#define PRERELEASE_BUILD    0
-
-#if PRIVATE_BUILD
-#define STR_PRIVATE   "Initial Prerelease"
-#define STR_SPECIAL   "Basic functionality"
-#define STD_FILEFLAGS VS_FF_PRIVATEBUILD | VS_FF_SPECIALBUILD
-#else
-#define STD_FILEFLAGS 0x0L
-#endif
-
-#if PRERELEASE_BUILD
-#define PSTD_FILEFLAGS STD_FILEFLAGS | VS_FF_PRERELEASE
-#else
-#define PSTD_FILEFLAGS STD_FILEFLAGS
-#endif
-
-#ifdef _DEBUG
-#define APP_FILEFLAGS STD_FILEFLAGS | VS_FF_DEBUG
-#else
-#define APP_FILEFLAGS STD_FILEFLAGS
-#endif
-
-#define IDI_MAINICON            101
-#ifndef STR_ICONAME
-#define STR_ICONAME             "cygwpexec.ico"
-#endif
-IDI_MAINICON         ICON       STR_ICONAME
+#define IDI_MAINICON        101
+IDI_MAINICON         ICON   "cygwpexec.ico"
 
 1 VERSIONINFO
  FILEVERSION CSV_VERSION
  PRODUCTVERSION CSV_VERSION
  FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
- FILEFLAGS APP_FILEFLAGS
- FILEOS VOS_NT
+ FILEFLAGS 0x0L
+ FILEOS VOS_NT_WINDOWS32
  FILETYPE VFT_APP
  FILESUBTYPE 0x0L
 BEGIN
@@ -91,10 +63,6 @@ BEGIN
             VALUE "OriginalFilename", STR_BINNAME "\0"
             VALUE "ProductName", STR_PRODUCT "\0"
             VALUE "ProductVersion", STR_VERSION "\0"
-#if PRIVATE_BUILD
-            VALUE "PrivateBuild", STR_PRIVATE "\0"
-            VALUE "SpecialBuild", STR_SPECIAL "\0"
-#endif
         END
     END
     BLOCK "VarFileInfo"
