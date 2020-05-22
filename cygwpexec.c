@@ -49,16 +49,7 @@ static const char aslicense[] = ""                                          \
     "You may obtain a copy of the License at\n\n"                           \
     "http://www.apache.org/licenses/LICENSE-2.0\n";
 
-static const wchar_t *cygroot = 0;
-
-/**
- * Typedefs taken from Python for defining ssize_t on MSVC
- */
-#ifdef _WIN64
-typedef __int64 ssize_t;
-#else
-typedef int     ssize_t;
-#endif
+static wchar_t *cygroot = 0;
 
 static const wchar_t *pathmatches[] = {
     L"/cygdrive/?/*",
@@ -511,32 +502,46 @@ wchar_t *getpexe(DWORD pid)
     return pp;
 }
 
-static wchar_t *getcygroot(void)
+static wchar_t *getcygroot(const wchar_t *argroot)
 {
-    wchar_t *r;
+    wchar_t *r = xwcsdup(argroot);
 
-    if ((r = xgetenv(L"CYGWIN_ROOT")) == 0) {
+    if ((r == 0) && ((r = xgetenv(L"CYGWIN_ROOT")) == 0)) {
         r = getpexe(GetCurrentProcessId());
         if (r != 0) {
             int x = 0;
             if (wchrimatch(r, L"*\\cygwin64\\*", &x) == 0) {
                 r[x + 9] = L'\0';
-                return r;
             }
-            if (wchrimatch(r, L"*\\cygwin\\*", &x) == 0) {
+            else if (wchrimatch(r, L"*\\cygwin\\*", &x) == 0) {
                 r[x + 7] = L'\0';
-                return r;
             }
-            xfree(r);
-            r = 0;
+			else {
+				xfree(r);
+				r = 0;
+			}
         }
     }
-    if (r == 0) {
-        if (_waccess(L"C:\\cygwin64\\bin\\bash.exe", 0) == 0)
-            r = xwcsdup(L"C:\\cygwin64");
-        else if (_waccess(L"C:\\cygwin\\bin\\bash.exe", 0) == 0)
-            r = xwcsdup(L"C:\\cygwin");
-    }
+	else {
+		wchar_t *s = r;
+		while (*s != L'\0') {
+			if (*s == L'/' || *s == L'\\') {
+				if(*(s + 1) == L'\0')
+					*s = L'\0';
+				else
+					*s = L'\\';
+			}
+			s++;
+		}
+	}
+	if (r != 0) {
+		wchar_t *s = xwcsvcat(r, L"\\bin\\bash.exe", 0);
+        if (_waccess(s, 0) != 0) {
+			xfree(r);
+			r = 0;
+		}
+		xfree(s);
+	}
     return r;
 }
 
@@ -621,8 +626,7 @@ static int usage(int rv)
 
 static int version(int license)
 {
-    fprintf(stdout, "cygwpexec 2.0.1\n");
-    fprintf(stdout, "Written by Mladen Turk (mturk@redhat.com).\n\n");
+    fprintf(stdout, "cygwpexec versiom 2.0.1 compiled on %s\n", __DATE__);
     if (license)
         fputs(aslicense, stdout);
     return 0;
@@ -633,6 +637,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     int i, rv = 0;
     wchar_t **dupwargv = 0;
     wchar_t **dupwenvp = 0;
+	const wchar_t *crp = 0;
     int envc = 0;
     int narg = 0;
     int opts = 1;
@@ -649,7 +654,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                 else if (wcscmp(p, L"-D") == 0 || wcscmp(p, L"--debug") == 0)
                     debug = 1;
                 else if (wcsncmp(p, L"--root=", 7) == 0)
-                    cygroot = wargv[i] + 7;
+                    crp = xwcsdup(wargv[i] + 7);
                 else if (wcscmp(p, L"--help") == 0)
                     return usage(0);
                 else
@@ -660,10 +665,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         }
         dupwargv[narg++] = xwcsdup(wargv[i]);
     }
-    if (!cygroot)
-        cygroot = getcygroot();
+
+    cygroot = getcygroot(crp);
     if (!cygroot) {
-        fprintf(stderr, "Cannot find CYGWIN_ROOT\n\n");
+        fprintf(stderr, "Cannot determine CYGWIN_ROOT\n\n");
         return usage(1);
     }
     else if (debug) {
