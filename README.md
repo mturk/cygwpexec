@@ -22,7 +22,7 @@ windows path separator `;`.
 
 Using cygwpexec the upper example would become:
 
-    cygwpexec program.exe --foo/tmp/f1 /usr/f1 ...
+    cygwpexec program.exe --f1=/tmp/f1 /usr/f1 ...
 
 Before starting `program.exe` cygwpexec converts all command line
 and environment variables to windows format.
