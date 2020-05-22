@@ -653,7 +653,7 @@ static int cmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
 
     if (argc < 2)
         return usage(1);
-    dupwargv = (wchar_t **)xmalloc(argc * sizeof(wchar_t *));
+    dupwargv = waalloc(argc);
     for (i = 1; i < argc; i++) {
         const wchar_t *p = wargv[i];
         if (opts) {
@@ -688,7 +688,7 @@ static int cmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             break;
         ++envc;
     }
-    dupwenvp = (wchar_t **)xmalloc((envc + 1) * sizeof(wchar_t *));
+    dupwenvp = waalloc(envc);
     for (i = 0; i < envc; i++)
         dupwenvp[i] = xwcsdup(wenv[i]);
     return cygwpexec(narg, dupwargv, envc, dupwenvp);
