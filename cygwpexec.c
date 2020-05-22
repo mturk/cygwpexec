@@ -61,18 +61,18 @@ typedef int     ssize_t;
 #endif
 
 static const wchar_t *pathmatches[] = {
-	L"/cygdrive/?/*",
-	L"/usr/*",
-	L"/tmp/*",
-	L"/bin/*",
-	L"/dev/*",
-	L"/etc/*",
-	L"/home/*",
-	L"/lib/*",
-	L"/proc/*",
-	L"/sbin/*",
-	L"/var/*",
-	0
+    L"/cygdrive/?/*",
+    L"/usr/*",
+    L"/tmp/*",
+    L"/bin/*",
+    L"/dev/*",
+    L"/etc/*",
+    L"/home/*",
+    L"/lib/*",
+    L"/proc/*",
+    L"/sbin/*",
+    L"/var/*",
+    0
 };
 
 /**
@@ -264,15 +264,15 @@ static const wchar_t *checkoptions(const wchar_t *str)
     if (str[0] == L'-' && str[1] == L'-') {
         /* Check for --foo=/...
          */
-		while (str[i] != L'\0')  {
-			/* We have a collon before = */
-			if (str[i] == L':')
-				return 0;
-			if (str[i] == L'=') {
-				return &str[i+1];
-			}
-			i++;
-		}
+        while (str[i] != L'\0')  {
+            /* We have a collon before = */
+            if (str[i] == L':')
+                return 0;
+            if (str[i] == L'=') {
+                return &str[i+1];
+            }
+            i++;
+        }
     }
     return 0;
 }
@@ -310,34 +310,34 @@ static wchar_t **splitpath(const wchar_t *str, size_t *tokens, int cmdparam)
             c++;
     }
     sa = waalloc(c + 1);
-	if (c > 0 ) {
-		c  = 0;
-		p = b = str;
-		if (cmdparam && ((e = checkoptions(b)) != 0)) {
-			/* position after --foo= */
-			p = e;
-		}
-		while ((e = wcschr(b, L':'))) {
-			int cn = 1;
-			int ch = *(e + 1);
-			if (ch == L'/' || ch == L'.' || ch == L':' || ch == L'\0') {
-				/* Is the previous token path or flag */
-				if (iscygwinpath(p)) {
-					while ((ch = *(e + cn)) == L':') {
-						/* Drop multiple colons
-						 * sa[c++] = xwcsdup(L"");
-						*/
-						cn++;
-					}
-					sa[c++] = xwcsndup(b, e - b);
-					s = e + cn;
-				}
-			}
-			p = b = e + cn;
-		}
-	}
-	if (*s != L'\0')
-		sa[c++] = xwcsdup(s);
+    if (c > 0 ) {
+        c  = 0;
+        p = b = str;
+        if (cmdparam && ((e = checkoptions(b)) != 0)) {
+            /* position after --foo= */
+            p = e;
+        }
+        while ((e = wcschr(b, L':'))) {
+            int cn = 1;
+            int ch = *(e + 1);
+            if (ch == L'/' || ch == L'.' || ch == L':' || ch == L'\0') {
+                /* Is the previous token path or flag */
+                if (iscygwinpath(p)) {
+                    while ((ch = *(e + cn)) == L':') {
+                        /* Drop multiple colons
+                         * sa[c++] = xwcsdup(L"");
+                        */
+                        cn++;
+                    }
+                    sa[c++] = xwcsndup(b, e - b);
+                    s = e + cn;
+                }
+            }
+            p = b = e + cn;
+        }
+    }
+    if (*s != L'\0')
+        sa[c++] = xwcsdup(s);
     if (tokens != 0)
         *tokens = c;
     return sa;
@@ -414,15 +414,15 @@ static wchar_t *posix2win(const wchar_t *root, const wchar_t *str, int cmdparam)
 
         if (cmdparam && ((pp = (wchar_t *)checkoptions(pa[i])) != 0)) {
             ep    = pa[i];
-			*(pp - 1) = L'\0';
+            *(pp - 1) = L'\0';
         }
         else {
             pp = pa[i];
-		}
+        }
         while (*mp != 0) {
             int match = 0;
             if (wchrimatch(pp, *mp, 0) == 0) {
-				wchar_t windrive[] = { 0, L':', L'\\', 0};
+                wchar_t windrive[] = { 0, L':', L'\\', 0};
                 wchar_t *lp = pp;
                 const wchar_t *wp;
                 if (mx == 0) {
@@ -451,7 +451,7 @@ static wchar_t *posix2win(const wchar_t *root, const wchar_t *str, int cmdparam)
         }
         if (!matched && ep) {
             /* We didn't have a cmdline match match */
-			*(pp - 1) = L'=';
+            *(pp - 1) = L'=';
         }
     }
     rv = mergepath(pa);
@@ -489,16 +489,16 @@ wchar_t *getpexe(DWORD pid)
 
     e.dwSize = (DWORD)sizeof(PROCESSENTRY32W);
     if (Process32FirstW(h, &e)) {
-		do {
-			if (e.th32ProcessID == pid) {
-				/* We found ourself :)
-				 */
-				ppid = e.th32ParentProcessID;
-				break;
-			}
+        do {
+            if (e.th32ProcessID == pid) {
+                /* We found ourself :)
+                 */
+                ppid = e.th32ParentProcessID;
+                break;
+            }
 
-		} while (Process32NextW(h, &e));
-	}
+        } while (Process32NextW(h, &e));
+    }
     CloseHandle(h);
     if (ppid == 0)
         return 0;
@@ -535,7 +535,7 @@ static wchar_t *getcygroot(void)
         if (_waccess(L"C:\\cygwin64\\bin\\bash.exe", 0) == 0)
             r = xwcsdup(L"C:\\cygwin64");
         else if (_waccess(L"C:\\cygwin\\bin\\bash.exe", 0) == 0)
-			r = xwcsdup(L"C:\\cygwin");
+            r = xwcsdup(L"C:\\cygwin");
     }
     return r;
 }
@@ -548,42 +548,42 @@ static int cygwpexec(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 
     if (debug) {
         wprintf(L"Arguments (%d):\n", argc);
-	}
+    }
     for (i = 0; i < argc; i++) {
         if (debug) {
             wprintf(L"[%2d] : %s\n", i, wargv[i]);
         }
         if (wcslen(wargv[i]) > 3) {
-			if ((p = posix2win(cygroot, wargv[i], 1)) != 0) {
-				if (debug) {
-					wprintf(L"     * %s\n", p);
-				}
-				xfree(wargv[i]);
-				wargv[i] = p;
-			}
+            if ((p = posix2win(cygroot, wargv[i], 1)) != 0) {
+                if (debug) {
+                    wprintf(L"     * %s\n", p);
+                }
+                xfree(wargv[i]);
+                wargv[i] = p;
+            }
         }
     }
     if (debug)
         wprintf(L"\nEnvironment (%d):\n", envc);
     for (i = 0; i < envc; i++) {
-		wchar_t *e = 0;
-		wchar_t *o;
+        wchar_t *e = 0;
+        wchar_t *o;
 
         if (debug) {
             wprintf(L"[%2d] : %s\n", i, wenvp[i]);
         }
-		o = wenvp[i];
-		if ((e = wcschr(wenvp[i], L'=')) != 0) {
-			e = e + 1;
-			if ((wcslen(e) > 3) && ((p = posix2win(cygroot, e, 0)) != 0)) {
-				*e = L'\0';
-				if (debug) {
-					wprintf(L"     * %s%s\n", o, p);
-				}
-				wenvp[i] = xwcsvcat(o, p, 0);
-				xfree(o);
-				xfree(p);
-			}
+        o = wenvp[i];
+        if ((e = wcschr(wenvp[i], L'=')) != 0) {
+            e = e + 1;
+            if ((wcslen(e) > 3) && ((p = posix2win(cygroot, e, 0)) != 0)) {
+                *e = L'\0';
+                if (debug) {
+                    wprintf(L"     * %s%s\n", o, p);
+                }
+                wenvp[i] = xwcsvcat(o, p, 0);
+                xfree(o);
+                xfree(p);
+            }
         }
     }
     if (debug) {
@@ -675,14 +675,14 @@ static int cmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         dupwargv[narg++] = xwcsdup(wargv[i]);
     }
     if (!cygroot)
-		cygroot = getcygroot();
-	if (!cygroot) {
-		fprintf(stderr, "Cannot find CYGWIN_ROOT\n\n");
-		return usage(1);
-	}
-	else if (debug) {
-		wprintf(L"cygwin root : %s\n", cygroot);
-	}
+        cygroot = getcygroot();
+    if (!cygroot) {
+        fprintf(stderr, "Cannot find CYGWIN_ROOT\n\n");
+        return usage(1);
+    }
+    else if (debug) {
+        wprintf(L"cygwin root : %s\n", cygroot);
+    }
     for (;;) {
         if (wenv[envc] == 0)
             break;
