@@ -628,21 +628,7 @@ static int version(int license)
     return 0;
 }
 
-#if defined(CONSOLE)
 int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
-#else
-int cmain(int argc, const wchar_t **wargv, const wchar_t **wenv);
-int WINAPI wWinMain(HINSTANCE hInstance,
-                    HINSTANCE hPrevInstance,
-                    LPWSTR lpCmdLine,
-                    int nCmdShow)
-{
-    AttachConsole(ATTACH_PARENT_PROCESS);
-    return cmain(__argc, __wargv, _wenviron);
-}
-
-static int cmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
-#endif
 {
     int i, rv = 0;
     wchar_t **dupwargv = 0;

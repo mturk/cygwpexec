@@ -1,7 +1,5 @@
 @echo off
 rem
-rem Copyright (c) 2011 The MyoMake Project <http://www.myomake.org>
-rem
 rem Licensed under the Apache License, Version 2.0 (the "License");
 rem you may not use this file except in compliance with the License.
 rem You may obtain a copy of the License at
@@ -17,21 +15,14 @@ rem
 rem Batch script for cygwpexec
 rem
 setlocal
-if /i "%~1" == "/gui" (
-    set "SUBSYTEM=WINDOWS"
-    set "OUTFILE=cygwpexecw.exe"
-    shift
+
+if /i "%~1" == "/x86" (
+    set "MACHINE=X86"
 ) else (
-    set "SUBSYTEM=CONSOLE"
-    set "OUTFILE=cygwpexec.exe"
-)
-if /i "%~1" == "/x64" (
     set "MACHINE=X64"
     set "CFLAGS=/DWIN64 %CFLAGS%"
-) else (
-    set "MACHINE=X86"
 )
-cl /nologo /TC /O2 /Ob2 /Zi /MD /W3 /DWIN32 %CFLAGS% /DUNICODE /D_UNICODE /D%SUBSYTEM% /c cygwpexec.c /Fdcygwpexec
+cl /nologo /TC /O2 /Ob2 /Zi /MD /W3 /DWIN32 %CFLAGS% /DUNICODE /D_UNICODE /DCONSOLE /c cygwpexec.c /Fdcygwpexec
 rc /l 0x409 /d "NDEBUG" %RCOPTS% cygwpexec.rc
-link /NOLOGO /OPT:REF /INCREMENTAL:NO /SUBSYSTEM:%SUBSYTEM% /MACHINE:%MACHINE% %LDFLAGS% cygwpexec.obj cygwpexec.res kernel32.lib psapi.lib %EXTRA_LIBS% /pdb:cygwpexec.pdb /OUT:%OUTFILE%
-@if exist %OUTFILE%.manifest mt -nologo -manifest %OUTFILE%.exe.manifest -outputresource:%OUTFILE%;1
+link /NOLOGO /OPT:REF /INCREMENTAL:NO /SUBSYSTEM:CONSOLE /MACHINE:%MACHINE% %LDFLAGS% cygwpexec.obj cygwpexec.res kernel32.lib psapi.lib %EXTRA_LIBS% /pdb:cygwpexec.pdb /OUT:cygwpexec.exe
+@if exist cygwpexec.exe.manifest mt -nologo -manifest cygwpexec.exe.exe.manifest -outputresource:cygwpexec.exe;1
