@@ -79,7 +79,7 @@ static const wchar_t *cygpenv[] = {
     L"EXECIGNORE=",
     L"PS1=",
     L"_=",
-	L"CYGWIN_ROOT=",
+    L"CYGWIN_ROOT=",
     0
 };
 
