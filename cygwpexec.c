@@ -71,6 +71,16 @@ static const wchar_t *pathmatches[] = {
     0
 };
 
+static const wchar_t *cygpenv[] = {
+    L"ORIGINAL_PATH=",
+    L"MINTTY_SHORTCUT=",
+    L"EXECIGNORE=",
+    L"PS1=",
+    L"_=",
+    0
+};
+
+
 /**
  * Maloc that causes process exit in case of ENOMEM
  */
@@ -250,24 +260,33 @@ static int wchrimatch(const wchar_t *str, const wchar_t *exp, int *match)
     return (str[x] != L'\0');
 }
 
+static int wstartswith(const wchar_t *str, const wchar_t *srch)
+{
+    const wchar_t *m = wcsstr(str, srch);
+
+    return (m == str) ? 1 : 0;
+}
+
 /**
  * Check if the argument is a cmdline option starting with
- * --option= and return the part after equal char
+ * --option= and return the pointer to '='
  */
-static const wchar_t *checkoptions(const wchar_t *str)
+static wchar_t *cmdoptionval(wchar_t *str)
 {
-    int i = 3;
+
     if (str[0] == L'-' && str[1] == L'-') {
         /* Check for --foo=/...
          */
-        while (str[i] != L'\0')  {
-            /* We have a collon before = */
-            if (str[i] == L':')
+        wchar_t *p = str + 2;
+        while (*p != L'\0')  {
+            /*
+             * We have a ':' before '='
+             */
+            if (*p == L':')
                 return 0;
-            if (str[i] == L'=') {
-                return &str[i+1];
-            }
-            i++;
+            if (*p == L'=')
+                return p + 1;
+            p++;
         }
     }
     return 0;
@@ -291,7 +310,7 @@ static int envsort(const void *arg1, const void *arg2)
     return _wcsicmp( *(wchar_t **)arg1, *(wchar_t **)arg2);
 }
 
-static wchar_t **splitpath(const wchar_t *str, size_t *tokens, int cmdparam)
+static wchar_t **splitpath(const wchar_t *str, size_t *tokens)
 {
     int c = 0;
     wchar_t **sa = 0;
@@ -309,10 +328,6 @@ static wchar_t **splitpath(const wchar_t *str, size_t *tokens, int cmdparam)
     if (c > 0 ) {
         c  = 0;
         p = b = str;
-        if (cmdparam && ((e = checkoptions(b)) != 0)) {
-            /* position after --foo= */
-            p = e;
-        }
         while ((e = wcschr(b, L':'))) {
             int cn = 1;
             int ch = *(e + 1);
@@ -390,7 +405,7 @@ static __inline void fs2bs(wchar_t *s)
     }
 }
 
-static wchar_t *posix2win(const wchar_t *root, const wchar_t *str, int cmdparam)
+static wchar_t *posix2win(const wchar_t *str)
 {
     wchar_t *rv = 0;
     wchar_t **pa;
@@ -400,28 +415,18 @@ static wchar_t *posix2win(const wchar_t *root, const wchar_t *str, int cmdparam)
         /* Nothing to do */
         return 0;
     }
-    pa = splitpath(str, &tokens, cmdparam);
+    pa = splitpath(str, &tokens);
     for (i = 0; i < tokens; i++) {
-        size_t mx = 0;
-        int   matched = 0;
         wchar_t *pp;
-        wchar_t *ep = 0;
         const wchar_t **mp = pathmatches;
 
-        if (cmdparam && ((pp = (wchar_t *)checkoptions(pa[i])) != 0)) {
-            ep    = pa[i];
-            *(pp - 1) = L'\0';
-        }
-        else {
-            pp = pa[i];
-        }
+        pp = pa[i];
         while (*mp != 0) {
-            int match = 0;
             if (wchrimatch(pp, *mp, 0) == 0) {
                 wchar_t windrive[] = { 0, L':', L'\\', 0};
                 wchar_t *lp = pp;
                 const wchar_t *wp;
-                if (mx == 0) {
+                if (mp == pathmatches) {
                     /* /cygdrive/x/... absolute path */
                     windrive[0] = towupper(pp[10]);
                     wp  = windrive;
@@ -429,25 +434,15 @@ static wchar_t *posix2win(const wchar_t *root, const wchar_t *str, int cmdparam)
                 }
                 else {
                     /* Posix internal path */
-                    wp  = root;
+                    wp  = cygroot;
                 }
                 fs2bs(lp);
                 rv = pa[i];
-                if (ep) {
-                    pa[i] = xwcsvcat(ep, L"=", wp, lp, 0);
-                }
-                else
-                    pa[i] = xwcsvcat(wp, lp, 0);
+                pa[i] = xwcsvcat(wp, lp, 0);
                 xfree(rv);
-                matched = 1;
                 break;
             }
-            mx++;
             mp++;
-        }
-        if (!matched && ep) {
-            /* We didn't have a cmdline match match */
-            *(pp - 1) = L'=';
         }
     }
     rv = mergepath(pa);
@@ -507,19 +502,33 @@ wchar_t *getpexe(DWORD pid)
     return pp;
 }
 
-static wchar_t *getcygroot(const wchar_t *argroot)
+static wchar_t *getcygroot(wchar_t *argroot)
 {
-    wchar_t *r = xwcsdup(argroot);
+    wchar_t *r = argroot;
 
-    if ((r == 0) && ((r = xgetenv(L"CYGWIN_ROOT")) == 0)) {
+    if (r == 0) {
+        /*
+         * No --root-<PATH> was provided
+         * Try CYGWIN_ROOT environment var
+         */
+        r = xgetenv(L"CYGWIN_ROOT");
+    }
+    if (r == 0) {
+        /*
+         * Find parent process and check
+         * if it's path is cygwin
+         */
         r = getpexe(GetCurrentProcessId());
         if (r != 0) {
             int x = 0;
-            if (wchrimatch(r, L"*\\cygwin64\\*", &x) == 0) {
+            if (wchrimatch(r, L"*\\cygwin\\*", &x) == 0) {
+                r[x + 7] = L'\0';
+            }
+            else if (wchrimatch(r, L"*\\cygwin64\\*", &x) == 0) {
                 r[x + 9] = L'\0';
             }
-            else if (wchrimatch(r, L"*\\cygwin\\*", &x) == 0) {
-                r[x + 7] = L'\0';
+            else if (wchrimatch(r, L"*\\cygwin32\\*", &x) == 0) {
+                r[x + 9] = L'\0';
             }
             else {
                 xfree(r);
@@ -527,7 +536,10 @@ static wchar_t *getcygroot(const wchar_t *argroot)
             }
         }
     }
-    else {
+    if (r != 0) {
+        /*
+         * Remove trailing slash (if present)
+         */
         wchar_t *s = r;
         while (*s != L'\0') {
             if (*s == L'/' || *s == L'\\') {
@@ -538,9 +550,7 @@ static wchar_t *getcygroot(const wchar_t *argroot)
             }
             s++;
         }
-    }
-    if (r != 0) {
-        wchar_t *s = xwcsvcat(r, L"\\bin\\bash.exe", 0);
+        s = xwcsvcat(r, L"\\bin\\bash.exe", 0);
         if (_waccess(s, 0) != 0) {
             xfree(r);
             r = 0;
@@ -555,6 +565,8 @@ static int cygwpexec(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     int i, rv;
     intptr_t rp;
     wchar_t *p;
+    wchar_t *e;
+    wchar_t *o;
 
     if (debug) {
         wprintf(L"Arguments (%d):\n", argc);
@@ -564,28 +576,44 @@ static int cygwpexec(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             wprintf(L"[%2d] : %s\n", i, wargv[i]);
         }
         if (wcslen(wargv[i]) > 3) {
-            if ((p = posix2win(cygroot, wargv[i], 1)) != 0) {
-                if (debug) {
-                    wprintf(L"     * %s\n", p);
+            o = wargv[i];
+            if ((e = cmdoptionval(o)) == 0) {
+                /*
+                 * We dont have --option=....
+                 * Variable e points to value
+                 */
+                 e = o;
+            }
+            if ((p = posix2win(e)) != 0) {
+                if (e != o) {
+                    *e = L'\0';
+                    if (debug) {
+                        wprintf(L"     * %s%s\n", o, p);
+                    }
+                    wargv[i] = xwcsvcat(o, p, 0);
+                    xfree(p);
                 }
-                xfree(wargv[i]);
-                wargv[i] = p;
+                else {
+                    if (debug) {
+                        wprintf(L"     * %s\n", p);
+                    }
+                    wargv[i] = p;
+                }
+                xfree(o);
             }
         }
     }
     if (debug)
-        wprintf(L"\nEnvironment (%d):\n", envc);
+        wprintf(L"\nEnvironment i (%d):\n", envc);
     for (i = 0; i < envc; i++) {
-        wchar_t *e = 0;
-        wchar_t *o;
 
         if (debug) {
             wprintf(L"[%2d] : %s\n", i, wenvp[i]);
         }
         o = wenvp[i];
-        if ((e = wcschr(wenvp[i], L'=')) != 0) {
+        if ((e = wcschr(o, L'=')) != 0) {
             e = e + 1;
-            if ((wcslen(e) > 3) && ((p = posix2win(cygroot, e, 0)) != 0)) {
+            if ((wcslen(e) > 3) && ((p = posix2win(e)) != 0)) {
                 *e = L'\0';
                 if (debug) {
                     wprintf(L"     * %s%s\n", o, p);
@@ -596,10 +624,11 @@ static int cygwpexec(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             }
         }
     }
+    qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
     if (debug) {
+        wprintf(L"\nEnvironment o (%d):\n", i);
         return 0;
     }
-    qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
     /* We have a valid environment. Install the console handler
      * XXX: Check if its needed ?
      */
@@ -639,10 +668,13 @@ static int version(int license)
 
 int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
 {
-    int i, rv = 0;
+    int i, j = 0;
     wchar_t **dupwargv = 0;
     wchar_t **dupwenvp = 0;
-    const wchar_t *crp = 0;
+    wchar_t *crp = 0;
+    const wchar_t *opath = 0;
+    const wchar_t *cpath = 0;
+
     int envc = 0;
     int narg = 0;
     int opts = 1;
@@ -679,13 +711,43 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     else if (debug) {
         wprintf(L"cygwin root : %s\n", cygroot);
     }
-    for (;;) {
-        if (wenv[envc] == 0)
-            break;
-        ++envc;
+    while (wenv[j] != 0) {
+
+        ++j;
     }
-    dupwenvp = waalloc(envc);
-    for (i = 0; i < envc; i++)
-        dupwenvp[i] = xwcsdup(wenv[i]);
+    dupwenvp = waalloc(j);
+    for (i = 0; i < j; i++) {
+        const wchar_t **e = cygpenv;
+        const wchar_t *p  = wenv[i];
+
+        while (*e != 0) {
+            if (wstartswith(p, *e)) {
+                /*
+                 * Skip cygwin's private environment variable
+                 */
+                p = 0;
+                break;
+            }
+            e++;
+        }
+        if (p != 0) {
+            if ((opath == 0) && wstartswith(p, L"PATH=")) {
+                opath = p;
+            }
+            else if ((cpath == 0) && wstartswith(p, L"CLEAN_PATH=")) {
+                cpath = p + 6;
+            }
+            else {
+                dupwenvp[envc++] = xwcsdup(p);
+            }
+        }
+    }
+    /*
+     * Add aditional environment variables
+     */
+    if (cpath != 0)
+        dupwenvp[envc++] = xwcsdup(cpath);
+    else if (opath != 0)
+        dupwenvp[envc++] = xwcsdup(opath);
     return cygwpexec(narg, dupwargv, envc, dupwenvp);
 }
