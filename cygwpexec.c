@@ -43,7 +43,6 @@
 #define XPATH_MAX 16384
 
 static int debug = 0;
-static wchar_t strbuff[512];
 
 static const char aslicense[] = "\n"                                             \
     "Licensed under the Apache License, Version 2.0 (the ""License"");\n"        \
@@ -102,19 +101,10 @@ static wchar_t **waalloc(size_t size)
     return (wchar_t **)xmalloc((size + 1) * sizeof(wchar_t *));
 }
 
-static __inline void xfree(void *m)
+static void xfree(void *m)
 {
     if (m != 0)
         free(m);
-}
-
-/**
- * Simple inline helper to check if the attributes of a path
- * represent a folder.
- */
-static __inline BOOL isfolder(DWORD attr)
-{
-    return (attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
 static void wafree(wchar_t **array)
@@ -152,24 +142,6 @@ static wchar_t *xwcsndup(const wchar_t *s, size_t size)
     p = (wchar_t *)xmalloc((size + 2) * sizeof(wchar_t));
     memcpy(p, s, size * sizeof(wchar_t));
     return p;
-}
-
-static wchar_t *xwcsrbrk(const wchar_t *s, const wchar_t *set)
-{
-    const wchar_t *p = s;
-
-    while (*p != 0)
-        p++;
-    while (s <= p) {
-        const wchar_t *q = set;
-        while (*q != 0) {
-            if (*p == *q)
-                return (wchar_t *)p;
-            q++;
-        }
-        p--;
-    }
-    return 0;
 }
 
 static wchar_t *xgetenv(const wchar_t *s)
@@ -263,11 +235,18 @@ static int wchrimatch(const wchar_t *str, const wchar_t *exp, int *match)
     return (str[x] != L'\0');
 }
 
-static int wstartswith(const wchar_t *str, const wchar_t *srch)
+static int strstartswith(const wchar_t *str, const wchar_t *src)
 {
-    const wchar_t *m = wcsstr(str, srch);
+    while (*str != 0) {
+        if (towupper(*str) != *src)
+            return 0;
+        str++;
+        src++;
+        if (*src == L'\0')
+            return 1;
+    }
 
-    return (m == str) ? 1 : 0;
+    return 0;
 }
 
 /**
@@ -313,7 +292,7 @@ static int envsort(const void *arg1, const void *arg2)
     return _wcsicmp( *(wchar_t **)arg1, *(wchar_t **)arg2);
 }
 
-static wchar_t **splitpath(const wchar_t *str, size_t *tokens)
+static wchar_t **splitpath(const wchar_t *str, int *tokens)
 {
     int c = 0;
     wchar_t **sa = 0;
@@ -379,29 +358,10 @@ static wchar_t *mergepath(wchar_t * const *paths)
     return rv;
 }
 
-static int is_valid_fnchar[128] = {
-    /* Reject all ctrl codes... Escape \n and \r (ascii 10 and 13)      */
-       0,0,0,0,0,0,0,0,0,0,2,0,0,2,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    /*   ! " # $ % & ' ( ) * + , - . /  0 1 2 3 4 5 6 7 8 9 : ; < = > ? */
-       1,1,2,1,3,3,3,3,3,3,2,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,0,3,2,1,2,2,
-    /* @ A B C D E F G H I J K L M N O  P Q R S T U V W X Y Z [ \ ] ^ _ */
-       1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,3,2,3,3,1,
-    /* ` a b c d e f g h i j k l m n o  p q r s t u v w x y z { | } ~   */
-       3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,3,2,3,3,1
-};
-
-static __inline int is_fnchar(wchar_t c)
-{
-    if (c > 127)
-        return 1;
-    else
-        return is_valid_fnchar[c] & 1;
-}
-
-static __inline void fs2bs(wchar_t *s)
+static void fs2bs(wchar_t *s)
 {
     wchar_t *p = s;
-    while (is_fnchar(*p)) {
+    while (*p != 0) {
         if (*p == L'/')
             *p = L'\\';
         p++;
@@ -410,9 +370,9 @@ static __inline void fs2bs(wchar_t *s)
 
 static wchar_t *posix2win(const wchar_t *str)
 {
-    wchar_t *rv = 0;
+    wchar_t *rv;
     wchar_t **pa;
-    size_t i, tokens;
+    int i, tokens;
 
     if ((wcschr(str, L'/') == 0) || (*str == L'.')) {
         /* Nothing to do */
@@ -420,10 +380,9 @@ static wchar_t *posix2win(const wchar_t *str)
     }
     pa = splitpath(str, &tokens);
     for (i = 0; i < tokens; i++) {
-        wchar_t *pp;
         const wchar_t **mp = pathmatches;
+        wchar_t *pp = pa[i];
 
-        pp = pa[i];
         while (*mp != 0) {
             if (wchrimatch(pp, *mp, 0) == 0) {
                 wchar_t windrive[] = { 0, L':', L'\\', 0};
@@ -440,9 +399,8 @@ static wchar_t *posix2win(const wchar_t *str)
                     wp  = cygroot;
                 }
                 fs2bs(lp);
-                rv = pa[i];
                 pa[i] = xwcsvcat(wp, lp, 0);
-                xfree(rv);
+                xfree(pp);
                 break;
             }
             mp++;
@@ -565,7 +523,7 @@ static wchar_t *getcygroot(wchar_t *argroot)
 
 static int cygwpexec(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
-    int i, rv;
+    int i;
     intptr_t rp;
     wchar_t *p;
     wchar_t *e;
@@ -632,17 +590,17 @@ static int cygwpexec(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         wprintf(L"\nEnvironment o (%d):\n", i);
         return 0;
     }
+    _flushall();
     /* We have a valid environment. Install the console handler
      * XXX: Check if its needed ?
      */
     SetConsoleCtrlHandler((PHANDLER_ROUTINE)console_handler, TRUE);
     rp = _wspawnvpe(_P_WAIT, wargv[0], wargv, wenvp);
     if (rp == (intptr_t)-1) {
+        rp = errno;
         _wperror(wargv[0]);
-        return 1;
     }
-    rv = (int)rp;
-    return rv;
+    return (int)rp;
 }
 
 static int usage(int rv)
@@ -675,6 +633,8 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     wchar_t **dupwargv = 0;
     wchar_t **dupwenvp = 0;
     wchar_t *crp = 0;
+    wchar_t strb[512];
+
     const wchar_t *opath = 0;
     const wchar_t *cpath = 0;
 
@@ -724,7 +684,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         const wchar_t *p  = wenv[i];
 
         while (*e != 0) {
-            if (wstartswith(p, *e)) {
+            if (strstartswith(p, *e)) {
                 /*
                  * Skip cygwin's private environment variable
                  */
@@ -734,10 +694,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             e++;
         }
         if (p != 0) {
-            if ((opath == 0) && wstartswith(p, L"PATH=")) {
+            if ((opath == 0) && strstartswith(p, L"PATH=")) {
                 opath = p;
             }
-            else if ((cpath == 0) && wstartswith(p, L"CLEAN_PATH=")) {
+            else if ((cpath == 0) && strstartswith(p, L"CLEAN_PATH=")) {
                 cpath = p + 6;
             }
             else {
@@ -755,10 +715,13 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     /*
      * Add aditional environment variables
      */
-    swprintf(strbuff, L"CYGWPEXEC_VER=%S", STR_VERSION);
-    dupwenvp[envc++] = xwcsdup(strbuff);
-    swprintf(strbuff, L"CYGWPEXEC_PID=%d", GetCurrentProcessId());
-    dupwenvp[envc++] = xwcsdup(strbuff);
+    swprintf(strb, L"CYGWPEXEC_VER=%S", STR_VERSION);
+    dupwenvp[envc++] = xwcsdup(strb);
+    swprintf(strb, L"CYGWPEXEC_PID=%d", GetCurrentProcessId());
+    dupwenvp[envc++] = xwcsdup(strb);
     dupwenvp[envc++] = xwcsvcat(L"CYGWIN_ROOT=", cygroot, 0);
+    /*
+     * Call main worken function
+     */
     return cygwpexec(narg, dupwargv, envc, dupwenvp);
 }
