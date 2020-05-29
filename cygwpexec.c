@@ -43,6 +43,8 @@
 #define XPATH_MAX 16384
 
 static int debug = 0;
+static wchar_t strbuff[512];
+
 static const char aslicense[] = "\n"                                             \
     "Licensed under the Apache License, Version 2.0 (the ""License"");\n"        \
     "you may not use this file except in compliance with the License.\n"         \
@@ -77,6 +79,7 @@ static const wchar_t *cygpenv[] = {
     L"EXECIGNORE=",
     L"PS1=",
     L"_=",
+	L"CYGWIN_ROOT=",
     0
 };
 
@@ -715,7 +718,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
 
         ++j;
     }
-    dupwenvp = waalloc(j);
+    dupwenvp = waalloc(j + 3);
     for (i = 0; i < j; i++) {
         const wchar_t **e = cygpenv;
         const wchar_t *p  = wenv[i];
@@ -743,11 +746,19 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         }
     }
     /*
-     * Add aditional environment variables
+     * Replace PATH with CLEAN_PATH if present
      */
     if (cpath != 0)
         dupwenvp[envc++] = xwcsdup(cpath);
     else if (opath != 0)
         dupwenvp[envc++] = xwcsdup(opath);
+    /*
+     * Add aditional environment variables
+     */
+    swprintf(strbuff, L"CYGWPEXEC_VER=%S", STR_VERSION);
+    dupwenvp[envc++] = xwcsdup(strbuff);
+    swprintf(strbuff, L"CYGWPEXEC_PID=%d", GetCurrentProcessId());
+    dupwenvp[envc++] = xwcsdup(strbuff);
+    dupwenvp[envc++] = xwcsvcat(L"CYGWIN_ROOT=", cygroot, 0);
     return cygwpexec(narg, dupwargv, envc, dupwenvp);
 }
