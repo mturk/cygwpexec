@@ -26,9 +26,9 @@
  */
 #define PSAPI_VERSION 1
 #define WIN32_LEAN_AND_MEAN
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0601
-#endif
+#define WINVER 0x0601
+#define _WIN32_WINNT WINVER
+
 #include <windows.h>
 #include <tlhelp32.h>
 #include <psapi.h>
