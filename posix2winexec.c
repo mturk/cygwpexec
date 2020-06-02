@@ -52,6 +52,7 @@ static wchar_t *posixwroot = 0;
 static const wchar_t *pathmatches[] = {
     0,
     L"/cygdrive/?/*",
+    L"/?/*",
     L"/dev/null",
     L"/usr/*",
     L"/tmp/*",
@@ -393,6 +394,13 @@ static wchar_t *posix2win(const wchar_t *str)
             pa[i] = xwcsvcat(windrive, pp + 12, 0);
         }
         else if (m == 2) {
+            /* /x/... msys absolute path */
+            wchar_t windrive[] = { 0, L':', L'\\', 0};
+            windrive[0] = towupper(pp[1]);
+            fs2bs(pp + 3);
+            pa[i] = xwcsvcat(windrive, pp + 3, 0);
+        }
+        else if (m == 3) {
             pa[i] = xwcsdup(L"NUL");
         }
         else {
@@ -447,6 +455,10 @@ static wchar_t *getposixwroot(wchar_t *argroot)
             }
             s++;
         }
+        /*
+         * Verify if the provided path
+         * contains bash.exe
+         */
         s = xwcsvcat(r, L"\\bin\\bash.exe", 0);
         if (_waccess(s, 0) != 0) {
             xfree(r);
@@ -548,7 +560,7 @@ static int usage(int rv)
     fprintf(os, "                  instead executing PROGRAM.\n");
     fprintf(os, " -V, --version    print version information and exit.\n");
     fprintf(os, "     --help       print this screen and exit.\n");
-    fprintf(os, "     --root=PATH  use PATH as cygwin root\n\n");
+    fprintf(os, "     --root=PATH  use PATH as posix root\n\n");
     if (rv == 0)
         fputs(aslicense, os);
     return rv;
