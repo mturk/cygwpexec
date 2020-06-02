@@ -21,17 +21,11 @@
  */
 #define _CRT_SECURE_NO_DEPRECATE
 
-/*
- * Ensure to use run-time dynamic linking, load Psapi.dll.
- */
-#define PSAPI_VERSION 1
 #define WIN32_LEAN_AND_MEAN
 #define WINVER 0x0601
 #define _WIN32_WINNT WINVER
 
 #include <windows.h>
-#include <tlhelp32.h>
-#include <psapi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,8 +33,6 @@
 #include <errno.h>
 #include <process.h>
 #include <io.h>
-
-#define XPATH_MAX 16384
 
 static int debug = 0;
 
@@ -55,10 +47,12 @@ static const char aslicense[] = "\n"                                            
     "See the License for the specific language governing permissions and\n"      \
     "limitations under the License.\n";
 
-static wchar_t *cygroot = 0;
+static wchar_t *posixwroot = 0;
 
 static const wchar_t *pathmatches[] = {
+    0,
     L"/cygdrive/?/*",
+    L"/dev/null",
     L"/usr/*",
     L"/tmp/*",
     L"/bin/*",
@@ -72,13 +66,13 @@ static const wchar_t *pathmatches[] = {
     0
 };
 
-static const wchar_t *cygpenv[] = {
+static const wchar_t *posixpenv[] = {
     L"ORIGINAL_PATH=",
     L"MINTTY_SHORTCUT=",
     L"EXECIGNORE=",
     L"PS1=",
     L"_=",
-    L"CYGWIN_ROOT=",
+    L"POSIX_ROOT=",
     0
 };
 
@@ -249,39 +243,41 @@ static int strstartswith(const wchar_t *str, const wchar_t *src)
     return 0;
 }
 
-/**
- * Check if the argument is a cmdline option starting with
- * --option= and return the pointer to '='
- */
-static wchar_t *cmdoptionval(wchar_t *str)
+/* Is this a known posix path */
+static int isknownppath(const wchar_t *str)
 {
+    int i = 1;
+    const wchar_t **mp = pathmatches;
 
-    if (str[0] == L'-' && str[1] == L'-') {
-        /* Check for --foo=/...
-         */
-        wchar_t *p = str + 2;
-        while (*p != L'\0')  {
-            /*
-             * We have a ':' before '='
-             */
-            if (*p == L':')
-                return 0;
-            if (*p == L'=')
-                return p + 1;
-            p++;
-        }
+    while (mp[i] != 0) {
+        if (wchrimatch(str, mp[i], 0) == 0)
+            return i;
+        i++;
     }
     return 0;
 }
 
-static int iscygwinpath(const wchar_t *str)
+/**
+ * Check if the argument is a cmdline option starting with
+ * <option>= and return the pointer to '='.
+ * In case the char after
+ */
+static wchar_t *cmdoptionval(wchar_t *str)
 {
-    const wchar_t **mp = pathmatches;
-
-    while (*mp != 0) {
-        if (wchrimatch(str, *mp, 0) == 0)
-            return 1;
-        mp++;
+    if (isknownppath(str)) {
+        /* The option starts with path */
+        return 0;
+    }
+    while (*str != L'\0') {
+        wchar_t *p = str + 1;
+        if (*str == L'=') {
+            if ((*p == L'\'') || (*p == L'"')) {
+                /* skip quote */
+                p++;
+            }
+            return p;
+        }
+        str = p;
     }
     return 0;
 }
@@ -315,7 +311,7 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
             int ch = *(e + 1);
             if (ch == L'/' || ch == L'.' || ch == L':' || ch == L'\0') {
                 /* Is the previous token path or flag */
-                if (iscygwinpath(p)) {
+                if (isknownppath(p)) {
                     while ((ch = *(e + cn)) == L':') {
                         /* Drop multiple colons
                          * sa[c++] = xwcsdup(L"");
@@ -372,7 +368,7 @@ static wchar_t *posix2win(const wchar_t *str)
 {
     wchar_t *rv;
     wchar_t **pa;
-    int i, tokens;
+    int i, m, tokens;
 
     if ((wcschr(str, L'/') == 0) || (*str == L'.')) {
         /* Nothing to do */
@@ -380,31 +376,30 @@ static wchar_t *posix2win(const wchar_t *str)
     }
     pa = splitpath(str, &tokens);
     for (i = 0; i < tokens; i++) {
-        const wchar_t **mp = pathmatches;
         wchar_t *pp = pa[i];
-
-        while (*mp != 0) {
-            if (wchrimatch(pp, *mp, 0) == 0) {
-                wchar_t windrive[] = { 0, L':', L'\\', 0};
-                wchar_t *lp = pp;
-                const wchar_t *wp;
-                if (mp == pathmatches) {
-                    /* /cygdrive/x/... absolute path */
-                    windrive[0] = towupper(pp[10]);
-                    wp  = windrive;
-                    lp += 12;
-                }
-                else {
-                    /* Posix internal path */
-                    wp  = cygroot;
-                }
-                fs2bs(lp);
-                pa[i] = xwcsvcat(wp, lp, 0);
-                xfree(pp);
-                break;
-            }
-            mp++;
+        /*
+         * Check for special paths
+         */
+        m = isknownppath(pp);
+        if (m == 0) {
+            /* Not a posix path */
+            continue;
         }
+        else if (m == 1) {
+            /* /cygdrive/x/... absolute path */
+            wchar_t windrive[] = { 0, L':', L'\\', 0};
+            windrive[0] = towupper(pp[10]);
+            fs2bs(pp + 12);
+            pa[i] = xwcsvcat(windrive, pp + 12, 0);
+        }
+        else if (m == 2) {
+            pa[i] = xwcsdup(L"NUL");
+        }
+        else {
+            fs2bs(pp);
+            pa[i] = xwcsvcat(posixwroot, pp, 0);
+        }
+        xfree(pp);
     }
     rv = mergepath(pa);
     wafree(pa);
@@ -427,75 +422,16 @@ static BOOL WINAPI console_handler(DWORD ctrl)
     return FALSE;
 }
 
-wchar_t *getpexe(DWORD pid)
-{
-    wchar_t buf[XPATH_MAX];
-    wchar_t *pp = 0;
-    DWORD  ppid = 0;
-    HANDLE h;
-    PROCESSENTRY32W e;
-
-    h = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (h == INVALID_HANDLE_VALUE)
-        return 0;
-
-    e.dwSize = (DWORD)sizeof(PROCESSENTRY32W);
-    if (Process32FirstW(h, &e)) {
-        do {
-            if (e.th32ProcessID == pid) {
-                /* We found ourself :)
-                 */
-                ppid = e.th32ParentProcessID;
-                break;
-            }
-
-        } while (Process32NextW(h, &e));
-    }
-    CloseHandle(h);
-    if (ppid == 0)
-        return 0;
-    h = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, ppid);
-    if (h == 0)
-        return 0;
-    if (GetModuleFileNameExW(h, 0, buf, XPATH_MAX) != 0)
-        pp = xwcsdup(buf);
-    CloseHandle(h);
-    return pp;
-}
-
-static wchar_t *getcygroot(wchar_t *argroot)
+static wchar_t *getposixwroot(wchar_t *argroot)
 {
     wchar_t *r = argroot;
 
     if (r == 0) {
         /*
          * No --root-<PATH> was provided
-         * Try CYGWIN_ROOT environment var
+         * Try POSIX_ROOT environment var
          */
-        r = xgetenv(L"CYGWIN_ROOT");
-    }
-    if (r == 0) {
-        /*
-         * Find parent process and check
-         * if it's path is cygwin
-         */
-        r = getpexe(GetCurrentProcessId());
-        if (r != 0) {
-            int x = 0;
-            if (wchrimatch(r, L"*\\cygwin\\*", &x) == 0) {
-                r[x + 7] = L'\0';
-            }
-            else if (wchrimatch(r, L"*\\cygwin64\\*", &x) == 0) {
-                r[x + 9] = L'\0';
-            }
-            else if (wchrimatch(r, L"*\\cygwin32\\*", &x) == 0) {
-                r[x + 9] = L'\0';
-            }
-            else {
-                xfree(r);
-                r = 0;
-            }
-        }
+        r = xgetenv(L"POSIX_ROOT");
     }
     if (r != 0) {
         /*
@@ -521,7 +457,7 @@ static wchar_t *getcygroot(wchar_t *argroot)
     return r;
 }
 
-static int cygwpexec(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
+static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
     int i;
     intptr_t rp;
@@ -540,7 +476,7 @@ static int cygwpexec(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             o = wargv[i];
             if ((e = cmdoptionval(o)) == 0) {
                 /*
-                 * We dont have --option=....
+                 * We dont have option=....
                  * Variable e points to value
                  */
                  e = o;
@@ -633,8 +569,6 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     wchar_t **dupwargv = 0;
     wchar_t **dupwenvp = 0;
     wchar_t *crp = 0;
-    wchar_t strb[512];
-
     const wchar_t *opath = 0;
     const wchar_t *cpath = 0;
 
@@ -666,13 +600,13 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         dupwargv[narg++] = xwcsdup(wargv[i]);
     }
 
-    cygroot = getcygroot(crp);
-    if (!cygroot) {
-        fprintf(stderr, "Cannot determine CYGWIN_ROOT\n\n");
+    posixwroot = getposixwroot(crp);
+    if (!posixwroot) {
+        fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
     }
     else if (debug) {
-        wprintf(L"cygwin root : %s\n", cygroot);
+        wprintf(L"posic root : %s\n", posixwroot);
     }
     while (wenv[j] != 0) {
 
@@ -680,13 +614,13 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
     dupwenvp = waalloc(j + 3);
     for (i = 0; i < j; i++) {
-        const wchar_t **e = cygpenv;
+        const wchar_t **e = posixpenv;
         const wchar_t *p  = wenv[i];
 
         while (*e != 0) {
             if (strstartswith(p, *e)) {
                 /*
-                 * Skip cygwin's private environment variable
+                 * Skip private environment variable
                  */
                 p = 0;
                 break;
@@ -715,13 +649,9 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     /*
      * Add aditional environment variables
      */
-    swprintf(strb, L"CYGWPEXEC_VER=%S", STR_VERSION);
-    dupwenvp[envc++] = xwcsdup(strb);
-    swprintf(strb, L"CYGWPEXEC_PID=%d", GetCurrentProcessId());
-    dupwenvp[envc++] = xwcsdup(strb);
-    dupwenvp[envc++] = xwcsvcat(L"CYGWIN_ROOT=", cygroot, 0);
+    dupwenvp[envc++] = xwcsvcat(L"POSIX_ROOT=", posixwroot, 0);
     /*
-     * Call main worken function
+     * Call main worker function
      */
-    return cygwpexec(narg, dupwargv, envc, dupwenvp);
+    return ppspawn(narg, dupwargv, envc, dupwenvp);
 }
