@@ -32,6 +32,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <process.h>
+#include <fcntl.h>
 #include <io.h>
 
 static int debug = 0;
@@ -69,10 +70,13 @@ static const wchar_t *pathmatches[] = {
 
 static const wchar_t *posixpenv[] = {
     L"ORIGINAL_PATH=",
+    L"ORIGINAL_TEMP=",
+    L"ORIGINAL_TMP=",
     L"MINTTY_SHORTCUT=",
     L"EXECIGNORE=",
     L"PS1=",
     L"_=",
+    L"!::=",
     L"POSIX_ROOT=",
     0
 };
@@ -414,20 +418,18 @@ static wchar_t *posix2win(const wchar_t *str)
     return rv;
 }
 
-
-static BOOL WINAPI console_handler(DWORD ctrl)
+/*
+ * Remove trailing char if it's one of chars
+ */
+static void rmtrailingchrs(wchar_t *str, const wchar_t *ch)
 {
-    switch (ctrl) {
-        case CTRL_BREAK_EVENT:
-            return FALSE;
-        case CTRL_C_EVENT:
-        case CTRL_CLOSE_EVENT:
-        case CTRL_SHUTDOWN_EVENT:
-        case CTRL_LOGOFF_EVENT:
-            return TRUE;
-        break;
+
+    wchar_t *s = str + wcslen(str);
+    if (s != str) {
+        if (wcschr(ch, *(s - 1)) != 0) {
+            *(s - 1) = L'\0';
+        }
     }
-    return FALSE;
 }
 
 static wchar_t *getposixwroot(wchar_t *argroot)
@@ -442,23 +444,16 @@ static wchar_t *getposixwroot(wchar_t *argroot)
         r = xgetenv(L"POSIX_ROOT");
     }
     if (r != 0) {
+        wchar_t *s;
         /*
          * Remove trailing slash (if present)
          */
-        wchar_t *s = r;
-        while (*s != L'\0') {
-            if (*s == L'/' || *s == L'\\') {
-                if(*(s + 1) == L'\0')
-                    *s = L'\0';
-                else
-                    *s = L'\\';
-            }
-            s++;
-        }
+        rmtrailingchrs(r, L"/\\");
         /*
          * Verify if the provided path
          * contains bash.exe
          */
+        fs2bs(r);
         s = xwcsvcat(r, L"\\bin\\bash.exe", 0);
         if (_waccess(s, 0) != 0) {
             xfree(r);
@@ -471,11 +466,13 @@ static wchar_t *getposixwroot(wchar_t *argroot)
 
 static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
-    int i;
+    int i, rc = 0;
     intptr_t rp;
     wchar_t *p;
     wchar_t *e;
     wchar_t *o;
+    int org_stdin;
+    int stdinpipe[2];
 
     if (debug) {
         wprintf(L"Arguments (%d):\n", argc);
@@ -538,17 +535,32 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         wprintf(L"\nEnvironment o (%d):\n", i);
         return 0;
     }
+
+    if(_pipe(stdinpipe, 512, O_NOINHERIT) == -1)
+        return errno;
+    org_stdin = _dup(_fileno(stdin));
+    if(_dup2(stdinpipe[0], _fileno(stdin)) != 0)
+        return errno;
+    _close(stdinpipe[0]);
     _flushall();
-    /* We have a valid environment. Install the console handler
-     * XXX: Check if its needed ?
-     */
-    SetConsoleCtrlHandler((PHANDLER_ROUTINE)console_handler, TRUE);
-    rp = _wspawnvpe(_P_WAIT, wargv[0], wargv, wenvp);
+    rp = _wspawnvpe(_P_NOWAIT, wargv[0], wargv, wenvp);
     if (rp == (intptr_t)-1) {
-        rp = errno;
+        rc = errno;
         _wperror(wargv[0]);
     }
-    return (int)rp;
+    else {
+        /*
+         * Restore original handle
+         */
+        if(_dup2(org_stdin, _fileno(stdout)) != 0)
+            return errno;
+        _close(org_stdin);
+        if (_cwait(&rc, rp, _WAIT_CHILD ) == (intptr_t)-1) {
+            rc = errno;
+            _wperror(wargv[0]);
+        }
+    }
+    return rc;
 }
 
 static int usage(int rv)
