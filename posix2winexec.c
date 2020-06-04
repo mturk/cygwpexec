@@ -550,9 +550,9 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     }
     else {
         /*
-         * Restore original handle
+         * Restore original stdin handle
          */
-        if(_dup2(org_stdin, _fileno(stdout)) != 0)
+        if(_dup2(org_stdin, _fileno(stdin)) != 0)
             return errno;
         _close(org_stdin);
         if (_cwait(&rc, rp, _WAIT_CHILD ) == (intptr_t)-1) {
