@@ -81,7 +81,6 @@ static const wchar_t *posixpenv[] = {
     0
 };
 
-
 /**
  * Maloc that causes process exit in case of ENOMEM
  */
@@ -269,20 +268,37 @@ static int isknownppath(const wchar_t *str)
  */
 static wchar_t *cmdoptionval(wchar_t *str)
 {
-    if (isknownppath(str)) {
+    wchar_t *s = str;
+    if (isknownppath(s)) {
         /* The option starts with path */
         return 0;
     }
-    while (*str != L'\0') {
-        wchar_t *p = str + 1;
-        if (*str == L'=') {
+    while (*s != L'\0') {
+        wchar_t *p = s + 1;
+        if (*s == L'=') {
             if ((*p == L'\'') || (*p == L'"')) {
                 /* skip quote */
                 p++;
             }
             return p;
         }
-        str = p;
+        s = p;
+    }
+    if (*str == L'-') {
+        s = str +1;
+        if (*s == L'I' || *s == L'L') {
+            s++;
+            if (*s == L'\'' || *s == L'"')
+                s++;
+            if (*s == L'/')
+                return s;
+        }
+        if (strstartswith(str, L"-LIBPATH:")) {
+            s = str + 9;
+            if (*s == L'\'' || *s == L'"')
+                s++;
+            return s;
+        }
     }
     return 0;
 }
