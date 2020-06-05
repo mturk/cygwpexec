@@ -27,6 +27,7 @@
 #include <process.h>
 #include <fcntl.h>
 #include <io.h>
+#include <conio.h>
 
 static int debug = 0;
 
@@ -44,20 +45,34 @@ static const char aslicense[] = "\n"                                            
 static wchar_t *posixwroot = 0;
 
 static const wchar_t *pathmatches[] = {
-    0,
     L"/cygdrive/?/*",
     L"/?/*",
-    L"/dev/null",
+    L"/bin/*",
     L"/usr/*",
     L"/tmp/*",
-    L"/bin/*",
-    L"/dev/*",
-    L"/etc/*",
     L"/home/*",
     L"/lib/*",
-    L"/proc/*",
+    L"/lib64/*",
     L"/sbin/*",
     L"/var/*",
+    L"/run/*",
+    L"/etc/*",
+    L"/dev/*",
+    L"/proc/*",
+    0
+};
+
+static const wchar_t *pathfixed[] = {
+    L"/bin",
+    L"/usr",
+    L"/tmp",
+    L"/home",
+    L"/lib",
+    L"/lib64",
+    L"/sbin",
+    L"/var",
+    L"/run",
+    L"/etc",
     0
 };
 
@@ -248,13 +263,30 @@ static int strstartswith(const wchar_t *str, const wchar_t *src)
 /* Is this a known posix path */
 static int isknownppath(const wchar_t *str)
 {
-    int i = 1;
-    const wchar_t **mp = pathmatches;
+    int i = 0;
+    const wchar_t **mp;
 
-    while (mp[i] != 0) {
-        if (wchrimatch(str, mp[i], 0) == 0)
-            return i;
-        i++;
+    if (*str != '/')
+        return 0;
+    if (wcscmp(str, L"/dev/null") == 0) {
+        return 200;
+    }
+    if (wcschr(str + 1, L'/') == 0) {
+        /* No additional slashes */
+        mp = pathfixed;
+        while (mp[i] != 0) {
+            if (wcscmp(str, mp[i]) == 0)
+                return i + 201;
+            i++;
+        }
+    }
+    else {
+        mp = pathmatches;
+        while (mp[i] != 0) {
+            if (wchrimatch(str, mp[i], 0) == 0)
+                return i + 100;
+            i++;
+        }
     }
     return 0;
 }
@@ -355,7 +387,7 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
                 size_t nn = (size_t)(e - b);
                 /* Is the previous token path or flag */
                 if (isknownppath(b)) {
-                    while ((*(e + cn) == L':') {
+                    while (*(e + cn) == L':') {
                         /* Drop multiple colons
                          */
                         cn++;
@@ -434,21 +466,21 @@ static wchar_t *posix2win(const wchar_t *str)
             /* Not a posix path */
             continue;
         }
-        else if (m == 1) {
+        else if (m == 100) {
             /* /cygdrive/x/... absolute path */
             wchar_t windrive[] = { 0, L':', L'\\', 0};
             windrive[0] = towupper(pp[10]);
             fs2bs(pp + 12);
             pa[i] = xwcsvcat(windrive, pp + 12, 0);
         }
-        else if (m == 2) {
+        else if (m == 101) {
             /* /x/... msys absolute path */
             wchar_t windrive[] = { 0, L':', L'\\', 0};
             windrive[0] = towupper(pp[1]);
             fs2bs(pp + 3);
             pa[i] = xwcsvcat(windrive, pp + 3, 0);
         }
-        else if (m == 3) {
+        else if (m == 200) {
             /* replace /dev/null with NUL */
             pa[i] = xwcsdup(L"NUL");
         }
@@ -565,7 +597,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         }
     }
     if (debug)
-        wprintf(L"\nEnvironment i (%d):\n", envc);
+        wprintf(L"\nEnvironment variables (%d):\n", envc);
     for (i = 0; i < envc; i++) {
 
         if (debug) {
@@ -592,7 +624,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     }
     qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
     if (debug) {
-        wprintf(L"\nEnvironment o (%d):\n", i);
+         _putwch(L'\n');
         return 0;
     }
     if(_pipe(stdinpipe, 512, O_NOINHERIT) == -1)
@@ -686,7 +718,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
 
     posixwroot = getposixwroot(crp);
-    if (!posixwroot) {
+    if (posixwroot == 0) {
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
     }
