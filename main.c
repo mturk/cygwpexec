@@ -759,10 +759,19 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     /*
      * Replace PATH with CLEAN_PATH if present
      */
-    if (cpath != 0)
-        dupwenvp[envc++] = xwcsdup(cpath);
-    else if (opath != 0)
+    if (cpath != 0) {
+        wchar_t sebuf[_MAX_PATH];
+        /* Add standard set of Windows paths */
+        i = ExpandEnvironmentStringsW(L";%SystemRoot%\\System32;%SystemRoot%;%SystemRoot%\\System32\\Wbem;%SystemRoot%\\System32\\WindowsPowerShell\\v1.0", sebuf, _MAX_PATH);
+        if ((i == 0) || (i > _MAX_PATH)) {
+            fprintf(stderr, "Failed to expand standard Environment variables. (rv = %d)\n\n", i);
+            return usage(1);
+        }
+        dupwenvp[envc++] =  xwcsvcat(cpath, sebuf, 0);
+    }
+    else if (opath != 0) {
         dupwenvp[envc++] = xwcsdup(opath);
+    }
     /*
      * Add aditional environment variables
      */
