@@ -51,8 +51,7 @@ static const wchar_t *pathmatches[] = {
     L"/usr/*",
     L"/tmp/*",
     L"/home/*",
-    L"/lib/*",
-    L"/lib64/*",
+    L"/lib*/*",
     L"/sbin/*",
     L"/var/*",
     L"/run/*",
@@ -208,42 +207,44 @@ static wchar_t *xwcsvcat(const wchar_t *str, ...)
     return res;
 }
 
-#ifdef WCHRICASE
+#if 0
 # define TLWR(x)    towlower(x)
 #else
-# define TLWR(x)    (x)
+# define TLWR(x)    x
 #endif
 /* Match = 0, NoMatch = 1, Abort = -1
  * Based loosely on sections of wildmat.c by Rich Salz
  */
-static int wchrimatch(const wchar_t *str, const wchar_t *exp, int *match)
+static int wchrimatch(const wchar_t *str, const wchar_t *exp)
 {
-    int x, y, d;
-
-    if (match == 0)
-        match = &d;
-    for (x = 0, y = 0; exp[y]; ++y, ++x) {
-        if (!str[x] && exp[y] != L'*')
+    for ( ; *exp != L'\0'; str++, exp++) {
+        if (*str == L'\0' && *exp != L'*')
             return -1;
-        if (exp[y] == L'*') {
-            while (exp[++y] == L'*');
-            if (!exp[y])
-                return 0;
-            while (str[x]) {
-                int ret;
-                *match = x;
-                if ((ret = wchrimatch(&str[x++], &exp[y], match)) != 1)
-                    return ret;
-            }
-            *match = 0;
-            return -1;
-        }
-        else if (exp[y] != L'?') {
-            if (TLWR(str[x]) != TLWR(exp[y]))
-                return 1;
+        switch (*exp) {
+            case L'*':
+                exp++;
+                while (*exp == L'*') {
+                    /* Skip multiple stars */
+                    exp++;
+                }
+                if (*exp == L'\0')
+                    return 0;
+                while (*str) {
+                    int rv;
+                    if ((rv = wchrimatch(str++, exp)) != 1)
+                        return rv;
+                }
+                return -1;
+            break;
+            case L'?':
+            break;
+            default:
+                if (TLWR(*str) != TLWR(*exp))
+                    return 1;
+            break;
         }
     }
-    return (str[x] != L'\0');
+    return (*str != L'\0');
 }
 
 static int strstartswith(const wchar_t *str, const wchar_t *src)
@@ -283,7 +284,7 @@ static int isknownppath(const wchar_t *str)
     else {
         mp = pathmatches;
         while (mp[i] != 0) {
-            if (wchrimatch(str, mp[i], 0) == 0)
+            if (wchrimatch(str, mp[i]) == 0)
                 return i + 100;
             i++;
         }
