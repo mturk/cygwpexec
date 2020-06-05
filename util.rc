@@ -31,7 +31,7 @@
 #define STR_BINNAME         STR_INTNAME ".exe"
 
 #define IDI_MAINICON        101
-IDI_MAINICON         ICON   "posix2winexec.ico"
+IDI_MAINICON         ICON   "util.ico"
 
 1 VERSIONINFO
  FILEVERSION CSV_VERSION,0
