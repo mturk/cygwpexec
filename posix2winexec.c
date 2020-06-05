@@ -292,10 +292,7 @@ static wchar_t *cmdoptionval(wchar_t *str)
                 return s;
         }
         if (strstartswith(str, L"-LIBPATH:")) {
-            s = str + 9;
-            if (*s == L'\'' || *s == L'"')
-                s++;
-            return s;
+            return str + 9;
         }
     }
     return 0;
@@ -314,7 +311,6 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
     const wchar_t *b;
     const wchar_t *e;
     const wchar_t *s;
-    const wchar_t *p;
 
     b = s = str;
     while (*b != L'\0') {
@@ -324,14 +320,14 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
     sa = waalloc(c + 1);
     if (c > 0 ) {
         c  = 0;
-        p = b = str;
+        b = str;
         while ((e = wcschr(b, L':'))) {
             int cn = 1;
             int ch = *(e + 1);
             if (ch == L'/' || ch == L'.' || ch == L':' || ch == L'\0') {
                 int cc = 0;
                 /* Is the previous token path or flag */
-                if (isknownppath(p)) {
+                if (isknownppath(b)) {
                     while ((ch = *(e + cn)) == L':') {
                         /* Drop multiple colons
                          * sa[c++] = xwcsdup(L"");
@@ -346,7 +342,7 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
                 sa[c++] = xwcsndup(b, (e + cc) - b);
                 s = e + cn;
             }
-            p = b = e + cn;
+            b = e + cn;
         }
     }
     if (*s != L'\0')
@@ -358,7 +354,7 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
 
 static wchar_t *mergepath(wchar_t * const *paths)
 {
-    int sc = 0;
+    int sc = 1;
     size_t len = 0;
     wchar_t *rv;
     wchar_t *const *pp;
@@ -514,11 +510,12 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             o = wargv[i];
             if ((e = cmdoptionval(o)) == 0) {
                 /*
-                 * We dont have option=....
-                 * Variable e points to value
+                 * We dont have known option=....
                  */
                  e = o;
             }
+            if (*e == L'\'' || *e == L'"')
+                e++;
             if ((p = posix2win(e)) != 0) {
                 if (e != o) {
                     *e = L'\0';
@@ -548,6 +545,8 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         o = wenvp[i];
         if ((e = wcschr(o, L'=')) != 0) {
             e = e + 1;
+            if (*e == L'\'' || *e == '"')
+                e++;
             if ((wcslen(e) > 3) && ((p = posix2win(e)) != 0)) {
                 *e = L'\0';
                 if (debug) {
@@ -557,6 +556,9 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
                 xfree(o);
                 xfree(p);
             }
+        }
+        else if (debug) {
+            wprintf(L"<%2d> : %s\n", i, wenvp[i]);
         }
     }
     qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
