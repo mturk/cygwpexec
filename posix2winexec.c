@@ -607,7 +607,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 static int usage(int rv)
 {
     FILE *os = rv == 0 ? stdout : stderr;
-    fprintf(os, "Usage posix2winexec [OPTIONS]... PROGRAM [ARGUMENTS]...\n");
+    fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", STR_INTNAME);
     fprintf(os, "Execute PROGRAM.\n\nOptions are:\n");
     fprintf(os, " -D, --debug      print replaced arguments and environment\n");
     fprintf(os, "                  instead executing PROGRAM.\n");
@@ -622,7 +622,7 @@ static int usage(int rv)
 
 static int version(int license)
 {
-    fprintf(stdout, "posix2winexec versiom %s compiled on %s\n", STR_VERSION, __DATE__);
+    fprintf(stdout, "%s versiom %s compiled on %s\n", STR_INTNAME, STR_VERSION, __DATE__);
     if (license)
         fputs(aslicense, stdout);
     return 0;

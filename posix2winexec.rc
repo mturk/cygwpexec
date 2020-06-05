@@ -28,7 +28,6 @@
   "limitations under the License."
 
 
-#define STR_INTNAME         "posix2winexec"
 #define STR_BINNAME         STR_INTNAME ".exe"
 
 #define IDI_MAINICON        101
