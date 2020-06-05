@@ -13,14 +13,7 @@
  *
  */
 
-#pragma warning(push, 3)
-
-/*
- * Ignore Microsoft's interpretation of secure development
- * and the POSIX string handling API
- */
 #define _CRT_SECURE_NO_DEPRECATE
-
 #define WIN32_LEAN_AND_MEAN
 #define WINVER 0x0601
 #define _WIN32_WINNT WINVER
@@ -200,6 +193,11 @@ static wchar_t *xwcsvcat(const wchar_t *str, ...)
     return res;
 }
 
+#ifdef WCHRICASE
+# define TLWR(x)    towlower(x)
+#else
+# define TLWR(x)    (x)
+#endif
 /* Match = 0, NoMatch = 1, Abort = -1
  * Based loosely on sections of wildmat.c by Rich Salz
  */
@@ -226,7 +224,7 @@ static int wchrimatch(const wchar_t *str, const wchar_t *exp, int *match)
             return -1;
         }
         else if (exp[y] != L'?') {
-            if (towlower(str[x]) != towlower(exp[y]))
+            if (TLWR(str[x]) != TLWR(exp[y]))
                 return 1;
         }
     }
@@ -285,7 +283,7 @@ static wchar_t *cmdoptionval(wchar_t *str)
         s = p;
     }
     if (*str == L'-') {
-        s = str +1;
+        s = str + 1;
         if (*s == L'I' || *s == L'L') {
             s++;
             if (*s == L'\'' || *s == L'"')
@@ -331,6 +329,7 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
             int cn = 1;
             int ch = *(e + 1);
             if (ch == L'/' || ch == L'.' || ch == L':' || ch == L'\0') {
+                int cc = 0;
                 /* Is the previous token path or flag */
                 if (isknownppath(p)) {
                     while ((ch = *(e + cn)) == L':') {
@@ -339,9 +338,13 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
                         */
                         cn++;
                     }
-                    sa[c++] = xwcsndup(b, e - b);
-                    s = e + cn;
                 }
+                else {
+                    /* Copy ':' as well */
+                    cc = 1;
+                }
+                sa[c++] = xwcsndup(b, (e + cc) - b);
+                s = e + cn;
             }
             p = b = e + cn;
         }
@@ -355,9 +358,11 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
 
 static wchar_t *mergepath(wchar_t * const *paths)
 {
+    int sc = 0;
     size_t len = 0;
     wchar_t *rv;
     wchar_t *const *pp;
+    const wchar_t  *cp;
 
     pp = paths;
     while (*pp != 0) {
@@ -367,10 +372,18 @@ static wchar_t *mergepath(wchar_t * const *paths)
     rv = xmalloc((len + 1) * sizeof(wchar_t));
     pp = paths;
     while (*pp != 0) {
-        if (pp != paths)
+        cp = *pp;
+        len = wcslen(cp);
+        if ((len == 0) || (cp[len - 1] == L':')) {
+            /* do not add semicolon */
+            sc = 0;
+        }
+        if (sc > 1) {
             wcscat(rv, L";");
-        wcscat(rv, *pp);
+        }
+        wcscat(rv, cp);
         pp++;
+        sc++;
     }
     return rv;
 }
@@ -646,7 +659,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         return usage(1);
     }
     else if (debug) {
-        wprintf(L"posic root : %s\n", posixwroot);
+        wprintf(L"POSIX_ROOT : %s\n", posixwroot);
     }
     while (wenv[j] != 0) {
 
