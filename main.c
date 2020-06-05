@@ -304,9 +304,20 @@ static int envsort(const void *arg1, const void *arg2)
     return _wcsicmp( *(wchar_t **)arg1, *(wchar_t **)arg2);
 }
 
+static void fs2bs(wchar_t *s)
+{
+    wchar_t *p = s;
+    while (*p != 0) {
+        if (*p == L'/')
+            *p = L'\\';
+        p++;
+    }
+}
+
 static wchar_t **splitpath(const wchar_t *str, int *tokens)
 {
     int c = 0;
+    int f = 0;
     wchar_t **sa = 0;
     const wchar_t *b;
     const wchar_t *e;
@@ -324,41 +335,61 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
         while ((e = wcschr(b, L':'))) {
             int cn = 1;
             int ch = *(e + 1);
-            if (ch == L'/' || ch == L'.' || ch == L':' || ch == L'\0') {
-                int cc = 0;
+            if (((b + 1) == e) && isalpha(*b & 0xFF) && (ch == L'/' || ch == L'\\' || ch == L'\0')) {
+                /*
+                 * We have <ALPHA>:[/\]
+                 * Find next colon
+                 */
+                if ((ch != L'\0') && (e = wcschr(b + 2, L':'))) {
+                    sa[c] = xwcsndup(b, e - b);
+                    fs2bs(sa[c++]);
+                    s = e + cn;
+                }
+                else {
+                    /* No more paths */
+                    f = 1;
+                    break;
+                }
+            }
+            else if (ch == L'/' || ch == L'.' || ch == L':' || ch == L'\0') {
+                size_t nn = (size_t)(e - b);
                 /* Is the previous token path or flag */
                 if (isknownppath(b)) {
-                    while ((ch = *(e + cn)) == L':') {
+                    while ((*(e + cn) == L':') {
                         /* Drop multiple colons
-                         * sa[c++] = xwcsdup(L"");
-                        */
+                         */
                         cn++;
                     }
                 }
                 else {
                     /* Copy ':' as well */
-                    cc = 1;
+                    nn++;
                 }
-                sa[c++] = xwcsndup(b, (e + cc) - b);
+                sa[c++] = xwcsndup(b, nn);
                 s = e + cn;
+            }
+            if (ch == L'\0') {
+                break;
             }
             b = e + cn;
         }
     }
-    if (*s != L'\0')
-        sa[c++] = xwcsdup(s);
-    if (tokens != 0)
-        *tokens = c;
+    if (*s != L'\0') {
+        sa[c] = xwcsdup(s);
+        if (f)
+            fs2bs(sa[c]);
+        c++;
+    }
+    *tokens = c;
     return sa;
 }
 
 static wchar_t *mergepath(wchar_t * const *paths)
 {
-    int sc = 1;
+    int  i, sc = 2;
     size_t len = 0;
     wchar_t *rv;
     wchar_t *const *pp;
-    const wchar_t  *cp;
 
     pp = paths;
     while (*pp != 0) {
@@ -367,31 +398,19 @@ static wchar_t *mergepath(wchar_t * const *paths)
     }
     rv = xmalloc((len + 1) * sizeof(wchar_t));
     pp = paths;
-    while (*pp != 0) {
-        cp = *pp;
-        len = wcslen(cp);
-        if ((len == 0) || (cp[len - 1] == L':')) {
-            /* do not add semicolon */
+    for (i = 0; pp[i] != 0; i++) {
+        len = wcslen(pp[i]);
+        if ((len == 0) || (pp[i][len - 1] == L':')) {
+            /* do not add semicolon before next path */
             sc = 0;
         }
-        if (sc > 1) {
+        if (i > 0 && sc != 1) {
             wcscat(rv, L";");
         }
-        wcscat(rv, cp);
-        pp++;
+        wcscat(rv, pp[i]);
         sc++;
     }
     return rv;
-}
-
-static void fs2bs(wchar_t *s)
-{
-    wchar_t *p = s;
-    while (*p != 0) {
-        if (*p == L'/')
-            *p = L'\\';
-        p++;
-    }
 }
 
 static wchar_t *posix2win(const wchar_t *str)
@@ -400,7 +419,7 @@ static wchar_t *posix2win(const wchar_t *str)
     wchar_t **pa;
     int i, m, tokens;
 
-    if ((wcschr(str, L'/') == 0) || (*str == L'.')) {
+    if ((*str == L'\0') || (wcschr(str, L'/') == 0)) {
         /* Nothing to do */
         return 0;
     }
@@ -430,6 +449,7 @@ static wchar_t *posix2win(const wchar_t *str)
             pa[i] = xwcsvcat(windrive, pp + 3, 0);
         }
         else if (m == 3) {
+            /* replace /dev/null with NUL */
             pa[i] = xwcsdup(L"NUL");
         }
         else {
