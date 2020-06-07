@@ -661,12 +661,12 @@ static wchar_t *getposixwroot(wchar_t *argroot)
     return r;
 }
 
-static void stdintx(void *p)
+static void __cdecl stdinrw(void *p)
 {
     unsigned char buf[512];
     int nr;
     while ((nr = _read(_fileno(stdin), buf, 512)) > 0) {
-        _write((int)p, buf, nr);
+        _write(*((int *)p), buf, nr);
     }
 }
 
@@ -789,6 +789,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         return usage(rc);
     }
     else {
+        int *ppipeid = &stdinpipe[1];
         /*
          * Restore original stdin handle
          */
@@ -799,8 +800,8 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         }
         _close(org_stdin);
         /* Create stdin thread */
-        _beginthread(stdintx, 0, (void *)stdinpipe[1]);
-        if (_cwait(&rc, rp, _WAIT_CHILD ) == (intptr_t)-1) {
+        _beginthread(stdinrw, 0, (void *)ppipeid);
+        if (_cwait(&rc, rp, _WAIT_CHILD) == (intptr_t)-1) {
             rc = errno;
             _wperror(wargv[0]);
         }
