@@ -803,7 +803,8 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         _beginthread(stdinrw, 0, (void *)ppipeid);
         if (_cwait(&rc, rp, _WAIT_CHILD) == (intptr_t)-1) {
             rc = errno;
-            _wperror(wargv[0]);
+            _wperror(L"Fatal error _cwait()");
+            fwprintf(stderr, L"Invalid executable: %s\n\n", wargv[0]);
         }
     }
     return rc;
