@@ -207,6 +207,20 @@ static wchar_t *xwcsvcat(const wchar_t *str, ...)
     return res;
 }
 
+static size_t endswithchrs(const wchar_t *str, const wchar_t *ch)
+{
+    const wchar_t *s;
+    size_t n = wcslen(str);
+     s = str + n;
+    if (s > str) {
+        --s;
+        if (wcschr(ch, *s) != 0) {
+            return (size_t)(s - str);
+        }
+    }
+    return n;
+}
+
 #if 0
 # define TLWR(x)    towlower(x)
 #else
@@ -247,17 +261,17 @@ static int wchrimatch(const wchar_t *str, const wchar_t *exp)
     return (*str != L'\0');
 }
 
-static int strstartswith(const wchar_t *str, const wchar_t *src)
+static int strstartswith(const wchar_t *str, const wchar_t *src, int icase)
 {
-    while (*str != 0) {
-        if (towupper(*str) != *src)
+    while (*str !=  L'\0') {
+        wchar_t m = icase ? toupper(*str) : *str;
+        if (*str != *src)
             return 0;
         str++;
         src++;
         if (*src == L'\0')
             return 1;
     }
-
     return 0;
 }
 
@@ -276,7 +290,8 @@ static int isknownppath(const wchar_t *str)
         /* No additional slashes */
         mp = pathfixed;
         while (mp[i] != 0) {
-            if (wcscmp(str, mp[i]) == 0)
+            size_t n = endswithchrs(str, L"'\"");
+            if (wcsncmp(str, mp[i], n) == 0)
                 return i + 201;
             i++;
         }
@@ -293,39 +308,39 @@ static int isknownppath(const wchar_t *str)
 }
 
 /**
- * Check if the argument is a cmdline option starting with
- * <option>= and return the pointer to '='.
- * In case the char after
+ * Check if the argument is a cmdline option
  */
 static wchar_t *cmdoptionval(wchar_t *str)
 {
     wchar_t *s = str;
-    if (isknownppath(s)) {
-        /* The option starts with path */
-        return 0;
-    }
-    while (*s != L'\0') {
-        wchar_t *p = s + 1;
-        if (*s == L'=') {
-            if ((*p == L'\'') || (*p == L'"')) {
-                /* skip quote */
-                p++;
-            }
-            return p;
-        }
-        s = p;
-    }
-    if (*str == L'-') {
-        s = str + 1;
-        if (*s == L'I' || *s == L'L') {
+
+    /*
+     * First check for [-/]I['"]/
+     * or [-/]LIBPATH:
+     */
+    if (*s == L'-' || *s == L'/') {
+        s++;
+        if (*s == L'I') {
             s++;
             if (*s == L'\'' || *s == L'"')
                 s++;
             if (*s == L'/')
                 return s;
         }
-        if (strstartswith(str, L"-LIBPATH:")) {
-            return str + 9;
+        else if (strstartswith(s, L"LIBPATH:", 1)) {
+            return s + 8;
+        }
+    }
+    if (isknownppath(str)) {
+        /* The option starts with known path */
+        return 0;
+    }
+    s = str;
+    while (*s != L'\0') {
+        s++;
+        if (*s == L'=') {
+            /* Return poonter after '=' */
+            return s + 1;
         }
     }
     return 0;
@@ -501,12 +516,10 @@ static wchar_t *posix2win(const wchar_t *str)
  */
 static void rmtrailingchrs(wchar_t *str, const wchar_t *ch)
 {
+    size_t n = endswithchrs(str, ch);
 
-    wchar_t *s = str + wcslen(str);
-    if (s != str) {
-        if (wcschr(ch, *(s - 1)) != 0) {
-            *(s - 1) = L'\0';
-        }
+    if (n > 0) {
+        *(str + n) = L'\0';
     }
 }
 
@@ -582,7 +595,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
                 if (e != o) {
                     *e = L'\0';
                     if (debug) {
-                        wprintf(L"     * %s%s\n", o, p);
+                        wprintf(L"     + %s%s\n", o, p);
                     }
                     wargv[i] = xwcsvcat(o, p, 0);
                     xfree(p);
@@ -736,7 +749,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         const wchar_t *p  = wenv[i];
 
         while (*e != 0) {
-            if (strstartswith(p, *e)) {
+            if (strstartswith(p, *e, 0)) {
                 /*
                  * Skip private environment variable
                  */
@@ -746,10 +759,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             e++;
         }
         if (p != 0) {
-            if ((opath == 0) && strstartswith(p, L"PATH=")) {
+            if ((opath == 0) && strstartswith(p, L"PATH=", 1)) {
                 opath = p;
             }
-            else if ((cpath == 0) && strstartswith(p, L"CLEAN_PATH=")) {
+            else if ((cpath == 0) && strstartswith(p, L"CLEAN_PATH=", 1)) {
                 cpath = p + 6;
             }
             else {
