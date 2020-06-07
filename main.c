@@ -28,9 +28,9 @@
 #include <fcntl.h>
 #include <io.h>
 #include <conio.h>
+#include <direct.h>
 
 static int debug = 0;
-static int cleanpath = 0;
 
 static const char aslicense[] = "\n"                                             \
     "Licensed under the Apache License, Version 2.0 (the ""License"");\n"        \
@@ -50,6 +50,8 @@ static const wchar_t *stdwinpaths = L";"    \
     L"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0";
 
 static wchar_t *posixwroot = 0;
+static wchar_t *realpwpath = 0;
+static wchar_t *changepdir = 0;
 
 static const wchar_t *pathmatches[] = {
     L"/cygdrive/?/*",
@@ -498,11 +500,54 @@ static wchar_t *mergepath(wchar_t * const *paths)
     return rv;
 }
 
+static wchar_t *posix2winpath(wchar_t *pp)
+{
+    int m;
+    wchar_t *rv;
+
+    if ((*pp == L'\0') || (wcschr(pp, L'/') == 0)) {
+        /* Nothing to do */
+        return pp;
+    }
+    /*
+     * Check for special paths
+     */
+    m = isknownppath(pp);
+    if (m == 0) {
+        /* Not a posix path */
+        return pp;
+    }
+    else if (m == 100) {
+        /* /cygdrive/x/... absolute path */
+        wchar_t windrive[] = { 0, L':', L'\\', 0};
+        windrive[0] = towupper(pp[10]);
+        fs2bs(pp + 12);
+        rv = xwcsvcat(windrive, pp + 12, 0);
+    }
+    else if (m == 101) {
+        /* /x/... msys absolute path */
+        wchar_t windrive[] = { 0, L':', L'\\', 0};
+        windrive[0] = towupper(pp[1]);
+        fs2bs(pp + 3);
+        rv = xwcsvcat(windrive, pp + 3, 0);
+    }
+    else if (m == 200) {
+        /* replace /dev/null with NUL */
+        rv = xwcsdup(L"NUL");
+    }
+    else {
+        fs2bs(pp);
+        rv = xwcsvcat(posixwroot, pp, 0);
+    }
+    xfree(pp);
+    return rv;
+}
+
 static wchar_t *posix2win(const wchar_t *str)
 {
     wchar_t *rv;
     wchar_t **pa;
-    int i, m, tokens;
+    int i, tokens;
 
     if ((*str == L'\0') || (wcschr(str, L'/') == 0)) {
         /* Nothing to do */
@@ -511,37 +556,7 @@ static wchar_t *posix2win(const wchar_t *str)
     pa = splitpath(str, &tokens);
     for (i = 0; i < tokens; i++) {
         wchar_t *pp = pa[i];
-        /*
-         * Check for special paths
-         */
-        m = isknownppath(pp);
-        if (m == 0) {
-            /* Not a posix path */
-            continue;
-        }
-        else if (m == 100) {
-            /* /cygdrive/x/... absolute path */
-            wchar_t windrive[] = { 0, L':', L'\\', 0};
-            windrive[0] = towupper(pp[10]);
-            fs2bs(pp + 12);
-            pa[i] = xwcsvcat(windrive, pp + 12, 0);
-        }
-        else if (m == 101) {
-            /* /x/... msys absolute path */
-            wchar_t windrive[] = { 0, L':', L'\\', 0};
-            windrive[0] = towupper(pp[1]);
-            fs2bs(pp + 3);
-            pa[i] = xwcsvcat(windrive, pp + 3, 0);
-        }
-        else if (m == 200) {
-            /* replace /dev/null with NUL */
-            pa[i] = xwcsdup(L"NUL");
-        }
-        else {
-            fs2bs(pp);
-            pa[i] = xwcsvcat(posixwroot, pp, 0);
-        }
-        xfree(pp);
+        pa[i] = posix2winpath(pp);
     }
     rv = mergepath(pa);
     wafree(pa);
@@ -599,6 +614,25 @@ static void stdintx(void *p)
     while ((nr = _read(_fileno(stdin), buf, 512)) > 0) {
         _write((int)p, buf, nr);
     }
+}
+
+static int usage(int rv)
+{
+    FILE *os = rv == 0 ? stdout : stderr;
+    fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", STR_INTNAME);
+    fprintf(os, "Execute PROGRAM.\n\nOptions are:\n");
+    fprintf(os, " -D, -[-]debug      print replaced arguments and environment\n");
+    fprintf(os, "                    instead executing PROGRAM.\n");
+    fprintf(os, " -V, -[-]version    print version information and exit.\n");
+    fprintf(os, " -?, -[-]help       print this screen and exit.\n");
+    fprintf(os, " -C, -[-]clean      Use CLEAN_PATH environvent variable instead PATH\n");
+    fprintf(os, "     -[-]env=LIST   Pass only environment variables lited inside LIST\n");
+    fprintf(os, "                    variables must be comma separated.\n");
+    fprintf(os, "     -[-]cwd=DIR    change working directory to DIR before calling PROGRAM\n");
+    fprintf(os, "     -[-]root=DIR   use DIR as posix root\n\n");
+    if (rv == 0)
+        fputs(aslicense, os);
+    return rv;
 }
 
 static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
@@ -673,18 +707,34 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             wprintf(L"<%2d> : %s\n", i, wenvp[i]);
         }
     }
+    if (changepdir != 0) {
+        if (_wchdir(changepdir) != 0) {
+            rc = errno;
+            _wperror(L"Fatal error _wchdir()");
+            fwprintf(stderr, L"Invalid dir : %s\n\n", changepdir);
+            _flushall();
+            return usage(rc);
+        }
+    }
     qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
     if (debug) {
          _putwch(L'\n');
         return 0;
     }
-    if(_pipe(stdinpipe, 512, O_NOINHERIT) == -1)
-        return errno;
+    if(_pipe(stdinpipe, 512, O_NOINHERIT) == -1) {
+        rc = errno;
+        _wperror(L"Fatal error _pipe()");
+        return rc;
+    }
     org_stdin = _dup(_fileno(stdin));
-    if(_dup2(stdinpipe[0], _fileno(stdin)) != 0)
-        return errno;
+    if(_dup2(stdinpipe[0], _fileno(stdin)) != 0) {
+        rc = errno;
+        _wperror(L"Fatal error _dup()");
+        return rc;
+    }
     _close(stdinpipe[0]);
     _flushall();
+    _wputenv(realpwpath);
     rp = _wspawnvpe(_P_NOWAIT, wargv[0], wargv, wenvp);
     if (rp == (intptr_t)-1) {
         rc = errno;
@@ -694,8 +744,11 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         /*
          * Restore original stdin handle
          */
-        if(_dup2(org_stdin, _fileno(stdin)) != 0)
-            return errno;
+        if(_dup2(org_stdin, _fileno(stdin)) != 0) {
+            rc = errno;
+            _wperror(L"Fatal error _dup2()");
+            return rc;
+        }
         _close(org_stdin);
         /* Create stdin thread */
         _beginthread(stdintx, 0, (void *)stdinpipe[1]);
@@ -706,25 +759,6 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     }
     return rc;
 }
-
-static int usage(int rv)
-{
-    FILE *os = rv == 0 ? stdout : stderr;
-    fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", STR_INTNAME);
-    fprintf(os, "Execute PROGRAM.\n\nOptions are:\n");
-    fprintf(os, " -D, -[-]debug      print replaced arguments and environment\n");
-    fprintf(os, "                    instead executing PROGRAM.\n");
-    fprintf(os, " -V, -[-]version    print version information and exit.\n");
-    fprintf(os, " -?, -[-]help       print this screen and exit.\n");
-    fprintf(os, " -C, -[-]clean      Use CLEAN_PATH environvent variable instead PATH\n");
-    fprintf(os, "     -[-]env=LIST   Pass only environment variables lited inside LIST\n");
-    fprintf(os, "                    variables must be comma separated.\n");
-    fprintf(os, "     -[-]root=DIR   use DIR as posix root\n\n");
-    if (rv == 0)
-        fputs(aslicense, os);
-    return rv;
-}
-
 
 static int version(int license)
 {
@@ -742,9 +776,11 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     wchar_t **safeenvp = 0;
     wchar_t *crp = 0;
     wchar_t *sev = 0;
+    wchar_t *cwd = 0;
     const wchar_t *opath = 0;
     const wchar_t *cpath = 0;
 
+    int cleanpath = 0;
     int envc = 0;
     int narg = 0;
     int opts = 1;
@@ -785,6 +821,8 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                     return version(1);
                 else if (_wcsnicmp(p, L"env=", 4) == 0)
                     sev = xwcsdup(p + 4);
+                else if (_wcsnicmp(p, L"cwd=", 4) == 0)
+                    cwd = xwcsdup(p + 4);
                 else if (_wcsnicmp(p, L"root=", 5) == 0)
                     crp = xwcsdup(p + 5);
                 else
@@ -819,7 +857,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             return usage(1);
         }
     }
-
+    if (cwd != 0) {
+        /* Use the new cwd */
+        changepdir = posix2winpath(cwd);
+    }
     while (wenv[j] != 0) {
 
         ++j;
@@ -839,17 +880,17 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             }
             e++;
         }
-        if ((p != 0) && cleanpath) {
-            if ((opath == 0) && strstartswith(p, L"PATH=", 1)) {
-                opath = p;
-                p = 0;
-            }
-            if ((cpath == 0) && strstartswith(p, L"CLEAN_PATH=", 1)) {
-                cpath = p + 6;
-                p = 0;
-            }
+        if (p == 0)
+            continue;
+        if ((opath == 0) && strstartswith(p, L"PATH=", 1)) {
+            opath = p + 5;
+            continue;
         }
-        if ((p != 0) && safeenvp) {
+        if ((cpath == 0) && strstartswith(p, L"CLEAN_PATH=", 1)) {
+            cpath = p + 11;
+            continue;
+        }
+        if (safeenvp) {
             e = safeenvp;
             p = 0;
             while (*e != 0) {
@@ -870,11 +911,12 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     /*
      * Replace PATH with CLEAN_PATH if present
      */
-    if (cpath != 0) {
+    if (cpath != 0 && cleanpath) {
         wchar_t *sebuf;
         wchar_t *inbuf;
 
         inbuf = xwcsvcat(cpath, stdwinpaths, 0);
+        inbuf = posix2winpath(inbuf);
         sebuf = (wchar_t *)xmalloc((8192) * sizeof(wchar_t));
         /* Add standard set of Windows paths */
         i = ExpandEnvironmentStringsW(inbuf, sebuf, 8190);
@@ -883,12 +925,23 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             fprintf(stderr, "for \'%S\'\n\n", inbuf);
             return usage(1);
         }
-        if ((wcschr(sebuf, L'%') == 0)
-        dupwenvp[envc++] = sebuf;
+        realpwpath = xwcsvcat(L"PATH=", sebuf, 0);
+        dupwenvp[envc++] = realpwpath;
         xfree(inbuf);
+        xfree(sebuf);
     }
     else if (opath != 0) {
-        dupwenvp[envc++] = xwcsdup(opath);
+        wchar_t *inbuf;
+
+        inbuf = xwcsdup(opath);
+        inbuf = posix2winpath(inbuf);
+        realpwpath = xwcsvcat(L"PATH=", inbuf, 0);
+        dupwenvp[envc++] = realpwpath;
+        xfree(inbuf);
+    }
+    if (realpwpath == 0) {
+        fprintf(stderr, "Cannot determine PATH environment\n\n");
+        return usage(1);
     }
     /*
      * Add aditional environment variables
