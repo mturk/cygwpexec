@@ -262,23 +262,23 @@ static size_t endswithchrs(const wchar_t *str, const wchar_t *ch)
 /* Match = 0, NoMatch = 1, Abort = -1
  * Based loosely on sections of wildmat.c by Rich Salz
  */
-static int wchrimatch(const wchar_t *str, const wchar_t *exp)
+static int wchrimatch(const wchar_t *wstr, const wchar_t *wexp)
 {
-    for ( ; *exp != L'\0'; str++, exp++) {
-        if (*str == L'\0' && *exp != L'*')
+    for ( ; *wexp != L'\0'; wstr++, wexp++) {
+        if (*wstr == L'\0' && *wexp != L'*')
             return -1;
-        switch (*exp) {
+        switch (*wexp) {
             case L'*':
-                exp++;
-                while (*exp == L'*') {
+                wexp++;
+                while (*wexp == L'*') {
                     /* Skip multiple stars */
-                    exp++;
+                    wexp++;
                 }
-                if (*exp == L'\0')
+                if (*wexp == L'\0')
                     return 0;
-                while (*str) {
+                while (*wstr) {
                     int rv;
-                    if ((rv = wchrimatch(str++, exp)) != 1)
+                    if ((rv = wchrimatch(wstr++, wexp)) != 1)
                         return rv;
                 }
                 return -1;
@@ -286,19 +286,19 @@ static int wchrimatch(const wchar_t *str, const wchar_t *exp)
             case L'?':
             break;
             default:
-                if (TLWR(*str) != TLWR(*exp))
+                if (TLWR(*wstr) != TLWR(*wexp))
                     return 1;
             break;
         }
     }
-    return (*str != L'\0');
+    return (*wstr != L'\0');
 }
 
 static int strstartswith(const wchar_t *str, const wchar_t *src, int icase)
 {
     while (*str !=  L'\0') {
         wchar_t m = icase ? toupper(*str) : *str;
-        if (*str != *src)
+        if (m != *src)
             return 0;
         str++;
         src++;
@@ -353,7 +353,7 @@ static wchar_t *cmdoptionval(wchar_t *str)
      */
     if (*s == L'-' || *s == L'/') {
         s++;
-        if (*s == L'I') {
+        if (towlower(*s) == L'i') {
             s++;
             if (*s == L'\'' || *s == L'"')
                 s++;
@@ -722,7 +722,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         if (_wchdir(changewdir) != 0) {
             rc = errno;
             _wperror(L"Fatal error _wchdir()");
-            fwprintf(stderr, L"Invalid dir : %s\n\n", changewdir);
+            fwprintf(stderr, L"Invalid dir: %s\n\n", changewdir);
             return usage(rc);
         }
     }
@@ -768,7 +768,9 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     rp = _wspawnvpe(_P_NOWAIT, wargv[0], wargv, wenvp);
     if (rp == (intptr_t)-1) {
         rc = errno;
-        _wperror(wargv[0]);
+        _wperror(L"Fatal error _wspawnvpe()");
+        fwprintf(stderr, L"Cannot execute: %s\n\n", wargv[0]);
+        return usage(rc);
     }
     else {
         /*
@@ -950,6 +952,11 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         if ((i == 0) || (i > 8190)) {
             fprintf(stderr, "Failed to expand standard Environment variables. (rv = %d)\n", i);
             fprintf(stderr, "for \'%S\'\n\n", inbuf);
+            return usage(1);
+        }
+        if ((wcschr(sebuf, L'%') != 0) && (wchrimatch(sebuf, L"*%*%*") == 0)) {
+            fprintf(stderr, "Failed to resolve Environment variables for CLEAN_PATH\n");
+            fprintf(stderr, "for \'%S\'\n\n", sebuf);
             return usage(1);
         }
         realpwpath = xwcsvcat(L"PATH=", sebuf, 0);
