@@ -276,7 +276,7 @@ static int wchrimatch(const wchar_t *wstr, const wchar_t *wexp)
                 }
                 if (*wexp == L'\0')
                     return 0;
-                while (*wstr) {
+                while (*wstr != L'\0') {
                     int rv;
                     if ((rv = wchrimatch(wstr++, wexp)) != 1)
                         return rv;
@@ -296,9 +296,9 @@ static int wchrimatch(const wchar_t *wstr, const wchar_t *wexp)
 
 static int strstartswith(const wchar_t *str, const wchar_t *src, int icase)
 {
-    while (*str !=  L'\0') {
-        wchar_t m = icase ? toupper(*str) : *str;
-        if (m != *src)
+    while (*str != L'\0') {
+        wchar_t wch = icase ? toupper(*str) : *str;
+        if (wch != *src)
             return 0;
         str++;
         src++;
@@ -309,7 +309,7 @@ static int strstartswith(const wchar_t *str, const wchar_t *src, int icase)
 }
 
 /* Is this a known posix path */
-static int isknownppath(const wchar_t *str)
+static int isposixpath(const wchar_t *str)
 {
     int i = 0;
     const wchar_t **mp;
@@ -364,7 +364,7 @@ static wchar_t *cmdoptionval(wchar_t *str)
             return s + 8;
         }
     }
-    if (isknownppath(str)) {
+    if (isposixpath(str)) {
         /* The option starts with known path */
         return 0;
     }
@@ -382,7 +382,7 @@ static wchar_t *cmdoptionval(wchar_t *str)
 static int envsort(const void *arg1, const void *arg2)
 {
     /* Compare all of both strings: */
-    return _wcsicmp( *(wchar_t **)arg1, *(wchar_t **)arg2);
+    return _wcsicmp(*(wchar_t **)arg1, *(wchar_t **)arg2);
 }
 
 static void fs2bs(wchar_t *s)
@@ -461,7 +461,7 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
                  * We have <ALPHA>:[/\]
                  * Find next colon
                  */
-                if ((ch != L'\0') && (e = wcschr(b + 2, L':'))) {
+                if ((ch != L'\0') && ((e = wcschr(b + 2, L':')) != 0)) {
                     sa[c] = xwcsndup(b, e - b);
                     fs2bs(sa[c++]);
                     s = e + cn;
@@ -477,7 +477,7 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
             else if (ch == L'/' || ch == L'.' || ch == L':' || ch == L'\0') {
                 size_t nn = (size_t)(e - b);
                 /* Is the previous token path or flag */
-                if (isknownppath(b)) {
+                if (isposixpath(b)) {
                     while (*(e + cn) == L':') {
                         /* Drop multiple colons
                          */
@@ -535,14 +535,14 @@ static wchar_t *posix2winpath(wchar_t *pp)
     int m;
     wchar_t *rv;
 
-    if ((*pp == L'\0') || (wcschr(pp, L'/') == 0)) {
+    if (wcschr(pp, L'/') == 0) {
         /* Nothing to do */
         return pp;
     }
     /*
      * Check for special paths
      */
-    m = isknownppath(pp);
+    m = isposixpath(pp);
     if (m == 0) {
         /* Not a posix path */
         return pp;
@@ -573,15 +573,15 @@ static wchar_t *posix2winpath(wchar_t *pp)
     return rv;
 }
 
-static wchar_t *posix2win(const wchar_t *str)
+static wchar_t *posix2win0(const wchar_t *str)
 {
     wchar_t *rv;
     wchar_t **pa;
     int i, tokens;
 
-    if ((*str == L'\0') || (wcschr(str, L'/') == 0)) {
-        /* Nothing to do */
-        return 0;
+    if (wcschr(str, L'/') == 0) {
+        /* Duplicate str */
+        return xwcsdup(str);
     }
     pa = splitpath(str, &tokens);
     for (i = 0; i < tokens; i++) {
@@ -591,6 +591,16 @@ static wchar_t *posix2win(const wchar_t *str)
     rv = mergepath(pa);
     wafree(pa);
     return rv;
+}
+
+static wchar_t *posix2win(const wchar_t *str)
+{
+
+    if (wcschr(str, L'/') == 0) {
+        /* Nothing to do */
+        return 0;
+    }
+    return posix2win0(str);
 }
 
 /*
@@ -941,9 +951,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         wchar_t *sebuf;
         wchar_t *inbuf;
 
-        sebuf = posix2win(cpath);
-        if (sebuf == 0)
-            sebuf = xwcsdup(cpath);
+        sebuf = posix2win0(cpath);
         inbuf = xwcsvcat(sebuf, stdwinpaths, 0);
         xfree(sebuf);
         sebuf = (wchar_t *)xmalloc((8192) * sizeof(wchar_t));
@@ -967,9 +975,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     else if (opath != 0) {
         wchar_t *pxbuf;
 
-        pxbuf = posix2win(opath);
-        if (pxbuf == 0)
-            pxbuf = xwcsdup(opath);
+        pxbuf = posix2win0(opath);
         realpwpath = xwcsvcat(L"PATH=", pxbuf, 0);
         dupwenvp[envc++] = realpwpath;
         xfree(pxbuf);
