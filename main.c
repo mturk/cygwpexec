@@ -98,6 +98,33 @@ static const wchar_t *posixpenv[] = {
     0
 };
 
+static int usage(int rv)
+{
+    FILE *os = rv == 0 ? stdout : stderr;
+    fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", STR_INTNAME);
+    fprintf(os, "Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n");
+    fprintf(os, " -D, -[-]debug      print replaced arguments and environment\n");
+    fprintf(os, "                    instead executing PROGRAM.\n");
+    fprintf(os, " -V, -[-]version    print version information and exit.\n");
+    fprintf(os, " -?, -[-]help       print this screen and exit.\n");
+    fprintf(os, " -C, -[-]clean      use CLEAN_PATH environment variable instead PATH\n");
+    fprintf(os, "     -[-]env=LIST   pass only environment variables listed inside LIST\n");
+    fprintf(os, "                    variables must be comma separated.\n");
+    fprintf(os, "     -[-]cwd=DIR    change working directory to DIR before calling PROGRAM\n");
+    fprintf(os, "     -[-]root=DIR   use DIR as posix root\n\n");
+    if (rv == 0)
+        fputs(aslicense, os);
+    return rv;
+}
+
+static int version(int license)
+{
+    fprintf(stdout, "%s versiom %s compiled on %s\n", STR_INTNAME, STR_VERSION, __DATE__);
+    if (license)
+        fputs(aslicense, stdout);
+    return 0;
+}
+
 /**
  * Maloc that causes process exit in case of ENOMEM
  */
@@ -186,7 +213,7 @@ static wchar_t *xwcsvcat(const wchar_t *str, ...)
     va_end(adummy);
 
     /* Allocate the required string */
-    res = (wchar_t *)xmalloc((len + 2) * sizeof(wchar_t));
+    res = (wchar_t *)xmalloc((len + 4) * sizeof(wchar_t));
     cp = res;
 
     /* Pass two --- copy the argument strings into the result space */
@@ -202,8 +229,10 @@ static wchar_t *xwcsvcat(const wchar_t *str, ...)
             len = saved_lengths[nargs++];
         else
             len = wcslen(argp);
-        memcpy(cp, argp, len * sizeof(wchar_t));
-        cp += len;
+        if (len > 0) {
+            memcpy(cp, argp, len * sizeof(wchar_t));
+            cp += len;
+        }
     }
 
     va_end(adummy);
@@ -214,7 +243,8 @@ static size_t endswithchrs(const wchar_t *str, const wchar_t *ch)
 {
     const wchar_t *s;
     size_t n = wcslen(str);
-     s = str + n;
+
+    s = str + n;
     if (s > str) {
         --s;
         if (wcschr(ch, *s) != 0) {
@@ -616,25 +646,6 @@ static void stdintx(void *p)
     }
 }
 
-static int usage(int rv)
-{
-    FILE *os = rv == 0 ? stdout : stderr;
-    fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", STR_INTNAME);
-    fprintf(os, "Execute PROGRAM.\n\nOptions are:\n");
-    fprintf(os, " -D, -[-]debug      print replaced arguments and environment\n");
-    fprintf(os, "                    instead executing PROGRAM.\n");
-    fprintf(os, " -V, -[-]version    print version information and exit.\n");
-    fprintf(os, " -?, -[-]help       print this screen and exit.\n");
-    fprintf(os, " -C, -[-]clean      Use CLEAN_PATH environvent variable instead PATH\n");
-    fprintf(os, "     -[-]env=LIST   Pass only environment variables lited inside LIST\n");
-    fprintf(os, "                    variables must be comma separated.\n");
-    fprintf(os, "     -[-]cwd=DIR    change working directory to DIR before calling PROGRAM\n");
-    fprintf(os, "     -[-]root=DIR   use DIR as posix root\n\n");
-    if (rv == 0)
-        fputs(aslicense, os);
-    return rv;
-}
-
 static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
     int i, rc = 0;
@@ -760,14 +771,6 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     return rc;
 }
 
-static int version(int license)
-{
-    fprintf(stdout, "%s versiom %s compiled on %s\n", STR_INTNAME, STR_VERSION, __DATE__);
-    if (license)
-        fputs(aslicense, stdout);
-    return 0;
-}
-
 int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
 {
     int i, j = 0;
@@ -811,14 +814,16 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                 }
                 if (*p == L'\0')
                     return usage(1);
+                else if (wcscmp(p, L"V") == 0)
+                    return version(0);
+                else if (_wcsicmp(p, L"version") == 0)
+                    return version(1);
                 else if (wcscmp(p, L"D") == 0 || _wcsicmp(p, L"debug") == 0)
                     debug = 1;
                 else if (wcscmp(p, L"C") == 0 || _wcsicmp(p, L"clean") == 0)
                     cleanpath = 1;
                 else if (wcscmp(p, L"?") == 0 || _wcsicmp(p, L"help") == 0)
                     return usage(0);
-                else if (wcscmp(p, L"V") == 0 || _wcsicmp(p, L"version") == 0)
-                    return version(1);
                 else if (_wcsnicmp(p, L"env=", 4) == 0)
                     sev = xwcsdup(p + 4);
                 else if (_wcsnicmp(p, L"cwd=", 4) == 0)
