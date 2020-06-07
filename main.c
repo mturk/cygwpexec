@@ -51,7 +51,6 @@ static const wchar_t *stdwinpaths = L";"    \
 
 static wchar_t *posixwroot = 0;
 static wchar_t *realpwpath = 0;
-static wchar_t *changewdir = 0;
 
 static const wchar_t *pathmatches[] = {
     L"/cygdrive/?/*",
@@ -95,6 +94,8 @@ static const wchar_t *posixpenv[] = {
     L"!::=",
     L"POSIX_ROOT=",
     L"SAFE_ENVVARS=",
+    L"PATH=",
+    L"CLEAN_PATH=",
     0
 };
 
@@ -595,15 +596,15 @@ static wchar_t *posix2winpath(wchar_t *pp)
     return rv;
 }
 
-static wchar_t *posix2win0(const wchar_t *str)
+static wchar_t *posix2win(const wchar_t *str)
 {
     wchar_t *rv;
     wchar_t **pa;
     int i, tokens;
 
     if (wcschr(str, L'/') == 0) {
-        /* Duplicate str */
-        return xwcsdup(str);
+        /* Nothing to do */
+        return 0;
     }
     pa = splitpath(str, &tokens);
     for (i = 0; i < tokens; i++) {
@@ -613,16 +614,6 @@ static wchar_t *posix2win0(const wchar_t *str)
     rv = mergepath(pa);
     wafree(pa);
     return rv;
-}
-
-static wchar_t *posix2win(const wchar_t *str)
-{
-
-    if (wcschr(str, L'/') == 0) {
-        /* Nothing to do */
-        return 0;
-    }
-    return posix2win0(str);
 }
 
 /*
@@ -661,8 +652,9 @@ static wchar_t *getposixwroot(wchar_t *argroot)
         fs2bs(r);
         s = xwcsvcat(r, L"\\bin\\bash.exe", 0);
         if (_waccess(s, 0) != 0) {
-            xfree(r);
-            r = 0;
+            fprintf(stderr, "Cannot determine valid POSIX_ROOT\n\n");
+            usage(1);
+            _exit(1);
         }
         xfree(s);
     }
@@ -750,14 +742,6 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             wprintf(L"<%2d> : %s\n", i, wenvp[i]);
         }
     }
-    if (changewdir != 0) {
-        if (_wchdir(changewdir) != 0) {
-            rc = errno;
-            _wperror(L"Fatal error _wchdir()");
-            fwprintf(stderr, L"Invalid dir: %s\n\n", changewdir);
-            return usage(rc);
-        }
-    }
     qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
     if (debug) {
          _putws(L"");
@@ -833,8 +817,8 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     wchar_t *crp = 0;
     wchar_t *sev = 0;
     wchar_t *cwd = 0;
-    const wchar_t *opath = 0;
-    const wchar_t *cpath = 0;
+    wchar_t *opath = 0;
+    wchar_t *cpath = 0;
 
     int cleanpath = 0;
     int envc = 0;
@@ -892,13 +876,22 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         }
         dupwargv[narg++] = xwcsdup(wargv[i]);
     }
-
+    opath = xgetenv(L"PATH");
+    if (cleanpath)
+        cpath = xgetenv(L"CLEAN_PATH");
     posixwroot = getposixwroot(crp);
     if (posixwroot == 0) {
+#if 0
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
+#else
+        if (cwd != 0)
+            posixwroot = xwcsdup(cwd);
+        else
+            posixwroot = _wgetcwd(0, 0);
+#endif
     }
-    else if (debug) {
+    if (debug) {
         wprintf(L"POSIX_ROOT : %s\n", posixwroot);
     }
     if (sev == 0) {
@@ -917,12 +910,19 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
     if (cwd != 0) {
         /* Use the new cwd */
-        changewdir = posix2winpath(cwd);
+        cwd = posix2winpath(cwd);
+        if (_wchdir(cwd) != 0) {
+            i = errno;
+            _wperror(L"Fatal error _wchdir()");
+            fwprintf(stderr, L"Invalid dir: %s\n\n", cwd);
+            return usage(i);
+        }
     }
     while (wenv[j] != 0) {
 
         ++j;
     }
+
     dupwenvp = waalloc(j + 3);
     for (i = 0; i < j; i++) {
         const wchar_t **e = posixpenv;
@@ -940,14 +940,6 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         }
         if (p == 0)
             continue;
-        if ((opath == 0) && strstartswith(p, L"PATH=", 1)) {
-            opath = p + 5;
-            continue;
-        }
-        if ((cpath == 0) && strstartswith(p, L"CLEAN_PATH=", 1)) {
-            cpath = p + 11;
-            continue;
-        }
         if (safeenvp) {
             e = safeenvp;
             p = 0;
@@ -969,12 +961,12 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     /*
      * Replace PATH with CLEAN_PATH if present
      */
-    if (cpath != 0 && cleanpath) {
+    if (cpath != 0) {
         wchar_t *sebuf;
         wchar_t *inbuf;
 
-        sebuf = posix2win0(cpath);
-        inbuf = xwcsvcat(sebuf, stdwinpaths, 0);
+        sebuf = posix2win(cpath);
+        inbuf = xwcsvcat(sebuf ? sebuf : cpath, stdwinpaths, 0);
         xfree(sebuf);
         sebuf = (wchar_t *)xmalloc((8192) * sizeof(wchar_t));
         /* Add standard set of Windows paths */
@@ -990,18 +982,18 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             return usage(1);
         }
         realpwpath = xwcsvcat(L"PATH=", sebuf, 0);
-        dupwenvp[envc++] = realpwpath;
         xfree(inbuf);
         xfree(sebuf);
+        xfree(cpath);
     }
     else if (opath != 0) {
         wchar_t *pxbuf;
 
-        pxbuf = posix2win0(opath);
-        realpwpath = xwcsvcat(L"PATH=", pxbuf, 0);
-        dupwenvp[envc++] = realpwpath;
+        pxbuf = posix2win(opath);
+        realpwpath = xwcsvcat(L"PATH=", pxbuf ? pxbuf : opath, 0);
         xfree(pxbuf);
     }
+    xfree(opath);
     if (realpwpath == 0) {
         fprintf(stderr, "Cannot determine PATH environment\n\n");
         return usage(1);
@@ -1009,6 +1001,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     /*
      * Add aditional environment variables
      */
+    dupwenvp[envc++] = realpwpath;
     dupwenvp[envc++] = xwcsvcat(L"POSIX_ROOT=", posixwroot, 0);
     /*
      * Call main worker function
