@@ -915,8 +915,11 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         wchar_t *sebuf;
         wchar_t *inbuf;
 
-        inbuf = xwcsvcat(cpath, stdwinpaths, 0);
-        inbuf = posix2winpath(inbuf);
+        sebuf = posix2win(cpath);
+        if (sebuf == 0)
+            sebuf = xwcsdup(cpath);
+        inbuf = xwcsvcat(sebuf, stdwinpaths, 0);
+        xfree(sebuf);
         sebuf = (wchar_t *)xmalloc((8192) * sizeof(wchar_t));
         /* Add standard set of Windows paths */
         i = ExpandEnvironmentStringsW(inbuf, sebuf, 8190);
@@ -931,13 +934,14 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         xfree(sebuf);
     }
     else if (opath != 0) {
-        wchar_t *inbuf;
+        wchar_t *pxbuf;
 
-        inbuf = xwcsdup(opath);
-        inbuf = posix2winpath(inbuf);
-        realpwpath = xwcsvcat(L"PATH=", inbuf, 0);
+        pxbuf = posix2win(opath);
+        if (pxbuf == 0)
+            pxbuf = xwcsdup(opath);
+        realpwpath = xwcsvcat(L"PATH=", pxbuf, 0);
         dupwenvp[envc++] = realpwpath;
-        xfree(inbuf);
+        xfree(pxbuf);
     }
     if (realpwpath == 0) {
         fprintf(stderr, "Cannot determine PATH environment\n\n");
