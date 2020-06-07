@@ -98,6 +98,25 @@ static const wchar_t *posixpenv[] = {
     0
 };
 
+#define SAFE_WINENVC 15
+static const wchar_t *safewinenv[SAFE_WINENVC] = {
+    L"COMSPEC=",
+    L"HOMEDRIVE=",
+    L"NUMBER_OF_PROCESSORS=",
+    L"OS=",
+    L"PATHEXT=",
+    L"PROCESSOR_ARCHITECTURE=",
+    L"PROCESSOR_IDENTIFIER=",
+    L"PROCESSOR_LEVEL=",
+    L"SYSTEMDRIVE=",
+    L"SYSTEMROOT=",
+    L"PROCESSOR_REVISION=",
+    L"TEMP=",
+    L"TMP=",
+    L"USERNAME=",
+    L"WINDIR="
+};
+
 static int usage(int rv)
 {
     FILE *os = rv == 0 ? stdout : stderr;
@@ -397,7 +416,7 @@ static void fs2bs(wchar_t *s)
 
 static wchar_t **splitsev(const wchar_t *str)
 {
-    int c = 0;
+    int i, c = 0;
     wchar_t **sa = 0;
     const wchar_t *b;
 
@@ -408,7 +427,7 @@ static wchar_t **splitsev(const wchar_t *str)
         if (*b++ == L',')
             c++;
     }
-    sa = waalloc(c + 2);
+    sa = waalloc(c + SAFE_WINENVC + 2);
     if (c > 0 ) {
         const wchar_t *e;
         c  = 0;
@@ -432,6 +451,9 @@ static wchar_t **splitsev(const wchar_t *str)
     if (*str != L'\0') {
         sa[c] = xwcsdup(str);
         wcscat(sa[c++], L"=");
+    }
+    for (i = 0; i < SAFE_WINENVC; i++) {
+        sa[c++] = xwcsdup(safewinenv[i]);
     }
     return sa;
 }
@@ -930,7 +952,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             e = safeenvp;
             p = 0;
             while (*e != 0) {
-                if (strstartswith(wenv[i], *e, 0)) {
+                if (strstartswith(wenv[i], *e, 1)) {
                     /*
                      * We have safe environment variable
                      */
