@@ -30,7 +30,10 @@ if /i "%~1" == "/x86" (
 rem
 rem Clean previous build
 for %%i in (exe obj res pdb) do del /F /Q  %SNAM%.%%i 2>NUL
-if /i "%~1" == "/clean" exit /B 0 
+if /i "%~1" == "/clean" exit /B 0
+if /i "%~1" == "/test" (
+    set "CFLAGS=/DDOTEST %CFLAGS%"
+)
 rem
 cl /nologo /O2 /Ob2 /Zi /MD /W3 /DWIN32 %CFLAGS% /DUNICODE /D_UNICODE /DCONSOLE /c main.c /Fd%SNAM% /Fo%SNAM%.obj
 rc /l 0x409 /n /d "NDEBUG" %RCOPTS% /d STR_VERSION=\"%SVER%\" /d STR_INTNAME=\"%SNAM%\" /d CSV_VERSION=%CVER% /fo %SNAM%.res util.rc

@@ -731,7 +731,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
          _putws(L"");
         return 0;
     }
-#ifdef RUNTEST
+#ifdef DOTEST
     if (wcscmp(wargv[0], L"argv") == 0) {
         for (i = 1; i < argc; i++) {
             if (i > 1)
