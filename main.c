@@ -30,6 +30,7 @@
 #include <conio.h>
 
 static int debug = 0;
+static int cleanpath = 0;
 
 static const char aslicense[] = "\n"                                             \
     "Licensed under the Apache License, Version 2.0 (the ""License"");\n"        \
@@ -41,6 +42,12 @@ static const char aslicense[] = "\n"                                            
     "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" \
     "See the License for the specific language governing permissions and\n"      \
     "limitations under the License.\n";
+
+static const wchar_t *stdwinpaths = L";"    \
+    L"%SystemRoot%\\System32;"              \
+    L"%SystemRoot%;"                        \
+    L"%SystemRoot%\\System32\\Wbem;"        \
+    L"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0";
 
 static wchar_t *posixwroot = 0;
 
@@ -85,6 +92,7 @@ static const wchar_t *posixpenv[] = {
     L"_=",
     L"!::=",
     L"POSIX_ROOT=",
+    L"SAFE_ENVVARS=",
     0
 };
 
@@ -123,19 +131,6 @@ static void wafree(wchar_t **array)
     xfree(array);
 }
 
-static wchar_t *xwcsdup(const wchar_t *s)
-{
-    wchar_t *d;
-    if (s == 0)
-        return 0;
-    d = wcsdup(s);
-    if (d == 0) {
-        _wperror(L"wcsdup");
-        _exit(1);
-    }
-    return d;
-}
-
 static wchar_t *xwcsndup(const wchar_t *s, size_t size)
 {
     wchar_t *p;
@@ -145,8 +140,14 @@ static wchar_t *xwcsndup(const wchar_t *s, size_t size)
     if (wcslen(s) < size)
         size = wcslen(s);
     p = (wchar_t *)xmalloc((size + 2) * sizeof(wchar_t));
-    memcpy(p, s, size * sizeof(wchar_t));
+    if (size > 0)
+        memcpy(p, s, size * sizeof(wchar_t));
     return p;
+}
+
+static wchar_t *xwcsdup(const wchar_t *s)
+{
+    return xwcsndup(s, SHRT_MAX);
 }
 
 static wchar_t *xgetenv(const wchar_t *s)
@@ -362,10 +363,50 @@ static void fs2bs(wchar_t *s)
     }
 }
 
+static wchar_t **splitsev(const wchar_t *str)
+{
+    int c = 0;
+    wchar_t **sa = 0;
+    const wchar_t *b;
+
+    if (*str == L'\0')
+        return 0;
+    b = str;
+    while (*b != L'\0') {
+        if (*b++ == L',')
+            c++;
+    }
+    sa = waalloc(c + 2);
+    if (c > 0 ) {
+        const wchar_t *e;
+        c  = 0;
+        b = str;
+        while ((e = wcschr(b, L','))) {
+            int cn = 1;
+            size_t nn = (size_t)(e - b);
+            while (*(e + cn) == L',') {
+                /* Drop multiple colons
+                 */
+                cn++;
+            }
+            if (nn > 0) {
+                sa[c] = xwcsndup(b, nn);
+                wcscat(sa[c++], L"=");
+                str = e + cn;
+            }
+            b = e + cn;
+        }
+    }
+    if (*str != L'\0') {
+        sa[c] = xwcsdup(str);
+        wcscat(sa[c++], L"=");
+    }
+    return sa;
+}
+
 static wchar_t **splitpath(const wchar_t *str, int *tokens)
 {
     int c = 0;
-    int f = 0;
     wchar_t **sa = 0;
     const wchar_t *b;
     const wchar_t *e;
@@ -376,7 +417,7 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
         if (*b++ == L':')
             c++;
     }
-    sa = waalloc(c + 1);
+    sa = waalloc(c + 2);
     if (c > 0 ) {
         c  = 0;
         b = str;
@@ -395,7 +436,9 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
                 }
                 else {
                     /* No more paths */
-                    f = 1;
+                    sa[c] = xwcsdup(s);
+                    fs2bs(sa[c++]);
+                    s = 0;
                     break;
                 }
             }
@@ -416,17 +459,11 @@ static wchar_t **splitpath(const wchar_t *str, int *tokens)
                 sa[c++] = xwcsndup(b, nn);
                 s = e + cn;
             }
-            if (ch == L'\0') {
-                break;
-            }
             b = e + cn;
         }
     }
-    if (*s != L'\0') {
-        sa[c] = xwcsdup(s);
-        if (f)
-            fs2bs(sa[c]);
-        c++;
+    if (s && *s != L'\0') {
+        sa[c++] = xwcsdup(s);
     }
     *tokens = c;
     return sa;
@@ -675,11 +712,14 @@ static int usage(int rv)
     FILE *os = rv == 0 ? stdout : stderr;
     fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", STR_INTNAME);
     fprintf(os, "Execute PROGRAM.\n\nOptions are:\n");
-    fprintf(os, " -D, --debug      print replaced arguments and environment\n");
-    fprintf(os, "                  instead executing PROGRAM.\n");
-    fprintf(os, " -V, --version    print version information and exit.\n");
-    fprintf(os, "     --help       print this screen and exit.\n");
-    fprintf(os, "     --root=PATH  use PATH as posix root\n\n");
+    fprintf(os, " -D, -[-]debug      print replaced arguments and environment\n");
+    fprintf(os, "                    instead executing PROGRAM.\n");
+    fprintf(os, " -V, -[-]version    print version information and exit.\n");
+    fprintf(os, " -?, -[-]help       print this screen and exit.\n");
+    fprintf(os, " -C, -[-]clean      Use CLEAN_PATH environvent variable instead PATH\n");
+    fprintf(os, "     -[-]env=LIST   Pass only environment variables lited inside LIST\n");
+    fprintf(os, "                    variables must be comma separated.\n");
+    fprintf(os, "     -[-]root=DIR   use DIR as posix root\n\n");
     if (rv == 0)
         fputs(aslicense, os);
     return rv;
@@ -699,7 +739,9 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     int i, j = 0;
     wchar_t **dupwargv = 0;
     wchar_t **dupwenvp = 0;
+    wchar_t **safeenvp = 0;
     wchar_t *crp = 0;
+    wchar_t *sev = 0;
     const wchar_t *opath = 0;
     const wchar_t *cpath = 0;
 
@@ -711,21 +753,45 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         return usage(1);
     dupwargv = waalloc(argc);
     for (i = 1; i < argc; i++) {
-        const wchar_t *p = wargv[i];
         if (opts) {
-            if (p[0] == L'-' && p[1] != L'\0') {
-                if (wcscmp(p, L"-V") == 0 || wcscmp(p, L"--version") == 0)
-                    return version(1);
-                else if (wcscmp(p, L"-D") == 0 || wcscmp(p, L"--debug") == 0)
+            const wchar_t *p = wargv[i];
+            /*
+             * Simple argument parsing
+             *
+             */
+            if (*(p++) == L'-') {
+                if (*p == L'-') {
+                    if (*(p + 1) == L'\0') {
+                        /* We have --
+                         * Stop processing our options
+                         */
+                        opts = 0;
+                        continue;
+                    }
+                    if (wcslen(p + 1) > 2)
+                        p++;
+                    else
+                        return usage(1);
+                }
+                if (*p == L'\0')
+                    return usage(1);
+                else if (wcscmp(p, L"D") == 0 || _wcsicmp(p, L"debug") == 0)
                     debug = 1;
-                else if (wcsncmp(p, L"--root=", 7) == 0)
-                    crp = xwcsdup(wargv[i] + 7);
-                else if (wcscmp(p, L"--help") == 0)
+                else if (wcscmp(p, L"C") == 0 || _wcsicmp(p, L"clean") == 0)
+                    cleanpath = 1;
+                else if (wcscmp(p, L"?") == 0 || _wcsicmp(p, L"help") == 0)
                     return usage(0);
+                else if (wcscmp(p, L"V") == 0 || _wcsicmp(p, L"version") == 0)
+                    return version(1);
+                else if (_wcsnicmp(p, L"env=", 4) == 0)
+                    sev = xwcsdup(p + 4);
+                else if (_wcsnicmp(p, L"root=", 5) == 0)
+                    crp = xwcsdup(p + 5);
                 else
                     return usage(1);
                 continue;
             }
+            /* No more options */
             opts = 0;
         }
         dupwargv[narg++] = xwcsdup(wargv[i]);
@@ -739,6 +805,21 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     else if (debug) {
         wprintf(L"POSIX_ROOT : %s\n", posixwroot);
     }
+    if (sev == 0) {
+        sev = xgetenv(L"SAFE_ENVVARS");
+    }
+    if (sev != 0) {
+        /*
+         * We have array of comma separated
+         * environment variables that are allowed to be passed to the child
+         */
+        safeenvp = splitsev(sev);
+        if (safeenvp == 0) {
+            fprintf(stderr, "SAFE_ENVVARS cannot be empty list\n\n");
+            return usage(1);
+        }
+    }
+
     while (wenv[j] != 0) {
 
         ++j;
@@ -758,30 +839,53 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             }
             e++;
         }
-        if (p != 0) {
+        if ((p != 0) && cleanpath) {
             if ((opath == 0) && strstartswith(p, L"PATH=", 1)) {
                 opath = p;
+                p = 0;
             }
-            else if ((cpath == 0) && strstartswith(p, L"CLEAN_PATH=", 1)) {
+            if ((cpath == 0) && strstartswith(p, L"CLEAN_PATH=", 1)) {
                 cpath = p + 6;
+                p = 0;
             }
-            else {
-                dupwenvp[envc++] = xwcsdup(p);
+        }
+        if ((p != 0) && safeenvp) {
+            e = safeenvp;
+            p = 0;
+            while (*e != 0) {
+                if (strstartswith(wenv[i], *e, 0)) {
+                    /*
+                     * We have safe environment variable
+                     */
+                    p = wenv[i];
+                    break;
+                }
+                e++;
             }
+        }
+        if (p != 0) {
+            dupwenvp[envc++] = xwcsdup(p);
         }
     }
     /*
      * Replace PATH with CLEAN_PATH if present
      */
     if (cpath != 0) {
-        wchar_t sebuf[_MAX_PATH];
+        wchar_t *sebuf;
+        wchar_t *inbuf;
+
+        inbuf = xwcsvcat(cpath, stdwinpaths, 0);
+        sebuf = (wchar_t *)xmalloc((8192) * sizeof(wchar_t));
         /* Add standard set of Windows paths */
-        i = ExpandEnvironmentStringsW(L";%SystemRoot%\\System32;%SystemRoot%;%SystemRoot%\\System32\\Wbem;%SystemRoot%\\System32\\WindowsPowerShell\\v1.0", sebuf, _MAX_PATH);
-        if ((i == 0) || (i > _MAX_PATH)) {
-            fprintf(stderr, "Failed to expand standard Environment variables. (rv = %d)\n\n", i);
+        i = ExpandEnvironmentStringsW(inbuf, sebuf, 8190);
+        if ((i == 0) || (i > 8190)) {
+            fprintf(stderr, "Failed to expand standard Environment variables. (rv = %d)\n", i);
+            fprintf(stderr, "for \'%S\'\n\n", inbuf);
             return usage(1);
         }
-        dupwenvp[envc++] =  xwcsvcat(cpath, sebuf, 0);
+        if ((wcschr(sebuf, L'%') == 0)
+        dupwenvp[envc++] = sebuf;
+        xfree(inbuf);
     }
     else if (opath != 0) {
         dupwenvp[envc++] = xwcsdup(opath);
