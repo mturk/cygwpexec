@@ -51,7 +51,7 @@ static const wchar_t *stdwinpaths = L";"    \
 
 static wchar_t *posixwroot = 0;
 static wchar_t *realpwpath = 0;
-static wchar_t *changepdir = 0;
+static wchar_t *changewdir = 0;
 
 static const wchar_t *pathmatches[] = {
     L"/cygdrive/?/*",
@@ -718,11 +718,11 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             wprintf(L"<%2d> : %s\n", i, wenvp[i]);
         }
     }
-    if (changepdir != 0) {
-        if (_wchdir(changepdir) != 0) {
+    if (changewdir != 0) {
+        if (_wchdir(changewdir) != 0) {
             rc = errno;
             _wperror(L"Fatal error _wchdir()");
-            fwprintf(stderr, L"Invalid dir : %s\n\n", changepdir);
+            fwprintf(stderr, L"Invalid dir : %s\n\n", changewdir);
             _flushall();
             return usage(rc);
         }
@@ -864,7 +864,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
     if (cwd != 0) {
         /* Use the new cwd */
-        changepdir = posix2winpath(cwd);
+        changewdir = posix2winpath(cwd);
     }
     while (wenv[j] != 0) {
 
