@@ -723,15 +723,34 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             rc = errno;
             _wperror(L"Fatal error _wchdir()");
             fwprintf(stderr, L"Invalid dir : %s\n\n", changewdir);
-            _flushall();
             return usage(rc);
         }
     }
     qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
     if (debug) {
-         _putwch(L'\n');
+         _putws(L"");
         return 0;
     }
+#ifdef RUNTEST
+    if (wcscmp(wargv[0], L"argv") == 0) {
+        for (i = 1; i < argc; i++) {
+            if (i > 1)
+                _putws(L"");
+             wprintf(L"%s", wargv[i]);
+        }
+        return 0;
+    }
+    if (wcscmp(wargv[0], L"envp") == 0) {
+        for (i = 0; i < envc; i++) {
+            if (i > 0)
+                _putws(L"");
+            wprintf(L"%s", wenvp[i]);
+        }
+        return 0;
+    }
+    fprintf(stderr, "unknown test %S .. use argv or envp\n", wargv[0]);
+    return 1;
+#endif
     if(_pipe(stdinpipe, 512, O_NOINHERIT) == -1) {
         rc = errno;
         _wperror(L"Fatal error _pipe()");
