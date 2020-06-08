@@ -874,10 +874,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
 #else
-        if (cwd != 0)
-            posixwroot = xwcsdup(cwd);
-        else
-            posixwroot = _wgetcwd(0, 0);
+        posixwroot = xgetenv(L"SYSTEMDRIVE");
 #endif
     }
     if (debug) {
