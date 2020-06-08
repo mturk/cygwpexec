@@ -725,9 +725,6 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
                 xfree(p);
             }
         }
-        else if (debug) {
-            wprintf(L"<%2d> : %s\n", i, wenvp[i]);
-        }
     }
     qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
     if (debug) {
@@ -941,7 +938,11 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             }
         }
         if (p != 0) {
-            dupwenvp[envc++] = xwcsdup(p);
+            const wchar_t *v = wcschr(p, L'=');
+            if (v != 0 && *(v + 1) != L'\0') {
+                /* Allow only non-empty variables */
+                dupwenvp[envc++] = xwcsdup(p);
+            }
         }
     }
     /*
