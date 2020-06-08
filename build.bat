@@ -12,10 +12,10 @@ rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 rem See the License for the specific language governing permissions and
 rem limitations under the License.
 rem
-rem Batch script for posix2winexec
+rem Batch script for posix2wx
 rem
 setlocal
-set "SNAM=posix2winexec"
+set "SNAM=posix2wx"
 set "SVER=2.0.1"
 set "CVER=2,0,1"
 set "CFLAGS=/DSTR_VERSION=\"%SVER%\" /DSTR_INTNAME=\"%SNAM%\" %CFLAGS%"
