@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
+#include <wchar.h>
 #include <errno.h>
 #include <process.h>
 #include <fcntl.h>
@@ -152,7 +152,17 @@ static void *xmalloc(size_t size)
 {
     void *p = calloc(size, 1);
     if (p == 0) {
-        _wperror(L"malloc");
+        _wperror(L"xmalloc");
+        _exit(1);
+    }
+    return p;
+}
+
+static void *xwalloc(size_t size)
+{
+    void *p = calloc(size, sizeof(wchar_t));
+    if (p == 0) {
+        _wperror(L"xwalloc");
         _exit(1);
     }
     return p;
@@ -188,9 +198,9 @@ static wchar_t *xwcsndup(const wchar_t *s, size_t size)
         return 0;
     if (wcslen(s) < size)
         size = wcslen(s);
-    p = (wchar_t *)xmalloc((size + 2) * sizeof(wchar_t));
+    p = (wchar_t *)xwalloc(size + 2);
     if (size > 0)
-        memcpy(p, s, size * sizeof(wchar_t));
+        wmemcpy(p, s, size);
     return p;
 }
 
@@ -209,53 +219,31 @@ static wchar_t *xgetenv(const wchar_t *s)
     return xwcsdup(d);
 }
 
-static wchar_t *xwcsvcat(const wchar_t *str, ...)
+static size_t xwcslen(const wchar_t *s)
 {
-    wchar_t *cp, *argp, *res;
-    size_t  saved_lengths[32];
-    int     nargs = 0;
-    size_t  len;
-    va_list adummy;
-
-    /* Pass one --- find length of required string */
-    if (str == 0)
+    if (s == 0)
         return 0;
+    else
+        return wcslen(s);
+}
 
-    len = wcslen(str);
-    va_start(adummy, str);
-    saved_lengths[nargs++] = len;
-    while ((cp = va_arg(adummy, wchar_t *)) != NULL) {
-        size_t cplen = wcslen(cp);
-        if (nargs < 32)
-            saved_lengths[nargs++] = cplen;
-        len += cplen;
-    }
-    va_end(adummy);
+static wchar_t *xwcsconcat(const wchar_t *s1, const wchar_t *s2)
+{
+    wchar_t *cp, *res;
+    size_t l1 = 0;
+    size_t l2 = 0;
 
+    l1 = xwcslen(s1);
+    l2 = xwcslen(s2);
     /* Allocate the required string */
-    res = (wchar_t *)xmalloc((len + 4) * sizeof(wchar_t));
+    res = (wchar_t *)xwalloc(l1 + l2 + 2);
     cp = res;
 
-    /* Pass two --- copy the argument strings into the result space */
-    va_start(adummy, str);
-
-    nargs = 0;
-    len = saved_lengths[nargs++];
-    memcpy(cp, str, len * sizeof(wchar_t));
-    cp += len;
-
-    while ((argp = va_arg(adummy, wchar_t *)) != NULL) {
-        if (nargs < 32)
-            len = saved_lengths[nargs++];
-        else
-            len = wcslen(argp);
-        if (len > 0) {
-            memcpy(cp, argp, len * sizeof(wchar_t));
-            cp += len;
-        }
-    }
-
-    va_end(adummy);
+    if(l1 > 0)
+        wmemcpy(cp, s1, l1);
+    cp += l1;
+    if(l2 > 0)
+        wmemcpy(cp, s2, l2);
     return res;
 }
 
@@ -459,23 +447,21 @@ static wchar_t **splitsev(const wchar_t *str)
     return sa;
 }
 
-static wchar_t **splitpath(const wchar_t *str, int *tokens)
+static wchar_t **splitpath(const wchar_t *s, int *tokens)
 {
     int c = 0;
     wchar_t **sa = 0;
     const wchar_t *b;
     const wchar_t *e;
-    const wchar_t *s;
 
-    b = s = str;
-    while (*b != L'\0') {
-        if (*b++ == L':')
+    e = b = s;
+    while (*e != L'\0') {
+        if (*e++ == L':')
             c++;
     }
     sa = waalloc(c + 2);
     if (c > 0 ) {
         c  = 0;
-        b = str;
         while ((e = wcschr(b, L':'))) {
             int cn = 1;
             int ch = *(e + 1);
@@ -536,7 +522,7 @@ static wchar_t *mergepath(wchar_t * const *paths)
         len += wcslen(*pp) + 1;
         pp++;
     }
-    rv = xmalloc((len + 1) * sizeof(wchar_t));
+    rv = xwalloc(len + 1);
     pp = paths;
     for (i = 0; pp[i] != 0; i++) {
         len = wcslen(pp[i]);
@@ -575,14 +561,14 @@ static wchar_t *posix2winpath(wchar_t *pp)
         wchar_t windrive[] = { 0, L':', L'\\', 0};
         windrive[0] = towupper(pp[10]);
         fs2bs(pp + 12);
-        rv = xwcsvcat(windrive, pp + 12, 0);
+        rv = xwcsconcat(windrive, pp + 12);
     }
     else if (m == 101) {
         /* /x/... msys absolute path */
         wchar_t windrive[] = { 0, L':', L'\\', 0};
         windrive[0] = towupper(pp[1]);
         fs2bs(pp + 3);
-        rv = xwcsvcat(windrive, pp + 3, 0);
+        rv = xwcsconcat(windrive, pp + 3);
     }
     else if (m == 200) {
         /* replace /dev/null with NUL */
@@ -590,7 +576,7 @@ static wchar_t *posix2winpath(wchar_t *pp)
     }
     else {
         fs2bs(pp);
-        rv = xwcsvcat(posixwroot, pp, 0);
+        rv = xwcsconcat(posixwroot, pp);
     }
     xfree(pp);
     return rv;
@@ -650,7 +636,7 @@ static wchar_t *getposixwroot(wchar_t *argroot)
          * contains bash.exe
          */
         fs2bs(r);
-        s = xwcsvcat(r, L"\\bin\\bash.exe", 0);
+        s = xwcsconcat(r, L"\\bin\\bash.exe");
         if (_waccess(s, 0) != 0) {
             fprintf(stderr, "Cannot determine valid POSIX_ROOT\n\n");
             usage(1);
@@ -704,7 +690,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
                     if (debug) {
                         wprintf(L"     + %s%s\n", o, p);
                     }
-                    wargv[i] = xwcsvcat(o, p, 0);
+                    wargv[i] = xwcsconcat(o, p);
                     xfree(p);
                 }
                 else {
@@ -734,7 +720,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
                 if (debug) {
                     wprintf(L"     * %s%s\n", o, p);
                 }
-                wenvp[i] = xwcsvcat(o, p, 0);
+                wenvp[i] = xwcsconcat(o, p);
                 xfree(o);
                 xfree(p);
             }
@@ -969,9 +955,9 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         wchar_t *inbuf;
 
         sebuf = posix2win(cpath);
-        inbuf = xwcsvcat(sebuf ? sebuf : cpath, stdwinpaths, 0);
+        inbuf = xwcsconcat(sebuf ? sebuf : cpath, stdwinpaths);
         xfree(sebuf);
-        sebuf = (wchar_t *)xmalloc((8192) * sizeof(wchar_t));
+        sebuf = (wchar_t *)xwalloc(8192);
         /* Add standard set of Windows paths */
         i = ExpandEnvironmentStringsW(inbuf, sebuf, 8190);
         if ((i == 0) || (i > 8190)) {
@@ -984,7 +970,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             fprintf(stderr, "for \'%S\'\n\n", sebuf);
             return usage(1);
         }
-        realpwpath = xwcsvcat(L"PATH=", sebuf, 0);
+        realpwpath = xwcsconcat(L"PATH=", sebuf);
         xfree(inbuf);
         xfree(sebuf);
         xfree(cpath);
@@ -993,10 +979,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         wchar_t *pxbuf;
 
         pxbuf = posix2win(opath);
-        realpwpath = xwcsvcat(L"PATH=", pxbuf ? pxbuf : opath, 0);
+        realpwpath = xwcsconcat(L"PATH=", pxbuf ? pxbuf : opath);
         xfree(pxbuf);
+        xfree(opath);
     }
-    xfree(opath);
     if (realpwpath == 0) {
         fprintf(stderr, "Cannot determine PATH environment\n\n");
         return usage(1);
@@ -1005,7 +991,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
      * Add aditional environment variables
      */
     dupwenvp[envc++] = realpwpath;
-    dupwenvp[envc++] = xwcsvcat(L"POSIX_ROOT=", posixwroot, 0);
+    dupwenvp[envc++] = xwcsconcat(L"POSIX_ROOT=", posixwroot);
     /*
      * Call main worker function
      */
