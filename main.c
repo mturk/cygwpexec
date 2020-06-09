@@ -292,6 +292,8 @@ static int wchrimatch(const wchar_t *wstr, const wchar_t *wexp)
                 return -1;
             break;
             case L'?':
+                if (isalpha(*wstr & UCHAR_MAX) != 0)
+                    return 1;
             break;
             default:
                 if (TLWR(*wstr) != TLWR(*wexp))
@@ -305,12 +307,33 @@ static int wchrimatch(const wchar_t *wstr, const wchar_t *wexp)
 static int strstartswith(const wchar_t *str, const wchar_t *src, int icase)
 {
     while (*str != L'\0') {
-        wchar_t wch = icase ? toupper(*str) : *str;
+        wchar_t wch = icase ? towupper(*str) : *str;
         if (wch != *src)
             return 0;
         str++;
         src++;
         if (*src == L'\0')
+            return 1;
+    }
+    return 0;
+}
+
+static int iswinpath(const wchar_t *s)
+{
+
+    if (isalpha(*(s++) & UCHAR_MAX)) {
+        if (*(s++) == ':') {
+            if (*s == L'/' || *s == L'\\' || *s == L'\0')
+                return 1;
+        }
+    }
+    return 0;
+}
+
+static int isrelpath(const wchar_t *s)
+{
+    while (*(s++) == L'.') {
+        if (*s == L'\0' || *s == L'/' || *s == L'\\')
             return 1;
     }
     return 0;
@@ -322,8 +345,12 @@ static int isposixpath(const wchar_t *str)
     int i = 0;
     const wchar_t **mp;
 
-    if (*str != '/')
-        return 0;
+    if (*str != '/') {
+        if (isrelpath(str))
+            return 300;
+        else
+            return 0;
+    }
     if (wcscmp(str, L"/dev/null") == 0) {
         return 200;
     }
@@ -365,7 +392,7 @@ static wchar_t *cmdoptionval(wchar_t *str)
             s++;
             if (*s == L'\'' || *s == L'"')
                 s++;
-            if (*s == L'/')
+            if (isposixpath(s) || iswinpath(s))
                 return s;
         }
         else if (strstartswith(s, L"LIBPATH:", 1)) {
@@ -465,7 +492,7 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
         while ((e = wcschr(b, L':'))) {
             int cn = 1;
             int ch = *(e + 1);
-            if (((b + 1) == e) && isalpha(*b & 0xFF) && (ch == L'/' || ch == L'\\' || ch == L'\0')) {
+            if ((e == (b + 1)) && iswinpath(b)) {
                 /*
                  * We have <ALPHA>:[/\]
                  * Find next colon
@@ -573,6 +600,10 @@ static wchar_t *posix2winpath(wchar_t *pp)
     else if (m == 200) {
         /* replace /dev/null with NUL */
         rv = xwcsdup(L"NUL");
+    }
+    else if (m == 300) {
+        fs2bs(pp);
+        return pp;
     }
     else {
         fs2bs(pp);
