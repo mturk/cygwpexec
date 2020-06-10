@@ -99,21 +99,26 @@ static const wchar_t *posixpenv[] = {
     0
 };
 
-#define SAFE_WINENVC 15
+#define SAFE_WINENVC 20
 static const wchar_t *safewinenv[SAFE_WINENVC] = {
+    L"COMPUTERNAME=",
     L"COMSPEC=",
     L"HOMEDRIVE=",
+    L"HOMEPATH=",
+    L"LOGONSERVER=",
     L"NUMBER_OF_PROCESSORS=",
     L"OS=",
     L"PATHEXT=",
     L"PROCESSOR_ARCHITECTURE=",
     L"PROCESSOR_IDENTIFIER=",
     L"PROCESSOR_LEVEL=",
+    L"PROCESSOR_REVISION=",
+    L"SESSIONNAME=",
     L"SYSTEMDRIVE=",
     L"SYSTEMROOT=",
-    L"PROCESSOR_REVISION=",
     L"TEMP=",
     L"TMP=",
+    L"USERDOMAIN=",
     L"USERNAME=",
     L"WINDIR="
 };

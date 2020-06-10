@@ -20,9 +20,9 @@ It also replaces paths in the environment variable values making
 sure the multiple path elements are correctly separated using
 windows path separator `;`.
 
-Using posix2winexec the upper example would become:
+Using posix2wx the upper example would become:
 
-    posix2winexec program.exe --f1=/tmp/f1 /usr/f1 ...
+    posix2wx program.exe --f1=/tmp/f1 /usr/f1 ...
 
 Before starting `program.exe` posix2winexec converts all command line
 and environment variables to windows format.
