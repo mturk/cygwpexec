@@ -211,7 +211,10 @@ static wchar_t *xgetenv(const wchar_t *s)
         return 0;
     if ((d = _wgetenv(s)) == 0)
         return 0;
-    return xwcsdup(d);
+    if (*d == L'\0')
+        return 0;
+    else
+        return xwcsdup(d);
 }
 
 static size_t xwcslen(const wchar_t *s)
