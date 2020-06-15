@@ -639,6 +639,10 @@ static wchar_t *getposixwroot(wchar_t *argroot)
          */
         r = xgetenv(L"HOME");
     }
+    if (r == 0) {
+        /* This won't help much */
+        return xgetenv(L"SYSTEMDRIVE");
+    }
     if (r != 0) {
         /*
          * Remove trailing slash (if present)
@@ -865,16 +869,22 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         dupwargv[narg++] = xwcsdup(wargv[i]);
     }
     opath = xgetenv(L"PATH");
-    if (cleanpath)
+    if (cleanpath) {
         cpath = xgetenv(L"CLEAN_PATH");
+        if (cpath == 0) {
+            /*
+             * -clean was given as option
+             * but the CLEAN_PATH envvar is missing
+             */
+            fprintf(stderr, "CLEAN_PATH cannot be empty\n\n");
+            return usage(1);
+        }
+    }
     posixwroot = getposixwroot(crp);
     if (posixwroot == 0) {
-#if 0
+        /* Should not happen */
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
-#else
-        posixwroot = xgetenv(L"SYSTEMDRIVE");
-#endif
     }
     if (debug) {
         wprintf(L"POSIX_ROOT : %s\n", posixwroot);
