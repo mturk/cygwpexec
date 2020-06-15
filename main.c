@@ -633,24 +633,18 @@ static wchar_t *getposixwroot(wchar_t *argroot)
          */
         r = xgetenv(L"POSIX_ROOT");
     }
+    if (r == 0) {
+        /*
+         * Use HOME
+         */
+        r = xgetenv(L"HOME");
+    }
     if (r != 0) {
-        wchar_t *s;
         /*
          * Remove trailing slash (if present)
          */
         rmtrailingsep(r);
-        /*
-         * Verify if the provided path
-         * contains bash.exe
-         */
         fs2bs(r);
-        s = xwcsconcat(r, L"\\bin\\bash.exe");
-        if (_waccess(s, 0) != 0) {
-            fprintf(stderr, "Cannot determine valid POSIX_ROOT\n\n");
-            usage(1);
-            _exit(1);
-        }
-        xfree(s);
     }
     return r;
 }
