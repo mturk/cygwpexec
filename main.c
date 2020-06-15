@@ -714,7 +714,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     }
     if (debug)
         wprintf(L"\nEnvironment variables (%d):\n", envc);
-    for (i = 0; i < envc; i++) {
+    for (i = 0; i < (envc - 2); i++) {
 
         if (debug) {
             wprintf(L"[%2d] : %s\n", i, wenvp[i]);
