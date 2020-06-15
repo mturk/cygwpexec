@@ -427,7 +427,7 @@ static wchar_t **splitsev(const wchar_t *str)
         return 0;
     b = str;
     while (*b != L'\0') {
-        if (*b++ == L',')
+        if (*b++ == L' ')
             c++;
     }
     sa = waalloc(c + SAFE_WINENVC + 2);
@@ -435,11 +435,11 @@ static wchar_t **splitsev(const wchar_t *str)
         const wchar_t *e;
         c  = 0;
         b = str;
-        while ((e = wcschr(b, L','))) {
+        while ((e = wcschr(b, L' '))) {
             int cn = 1;
             size_t nn = (size_t)(e - b);
-            while (*(e + cn) == L',') {
-                /* Drop multiple colons
+            while (*(e + cn) == L' ') {
+                /* Drop multiple spaces
                  */
                 cn++;
             }
