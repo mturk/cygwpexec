@@ -29,19 +29,9 @@
 #include <io.h>
 #include <conio.h>
 #include <direct.h>
+#include "config.h"
 
 static int debug = 0;
-
-static const char aslicense[] = "\n"                                             \
-    "Licensed under the Apache License, Version 2.0 (the ""License"");\n"        \
-    "you may not use this file except in compliance with the License.\n"         \
-    "You may obtain a copy of the License at\n\n"                                \
-    "http://www.apache.org/licenses/LICENSE-2.0\n\n"                             \
-    "Unless required by applicable law or agreed to in writing, software\n"      \
-    "distributed under the License is distributed on an ""AS IS"" BASIS,\n"      \
-    "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" \
-    "See the License for the specific language governing permissions and\n"      \
-    "limitations under the License.\n";
 
 static const wchar_t *stdwinpaths = L";"    \
     L"%SystemRoot%\\System32;"              \
@@ -126,7 +116,7 @@ static const wchar_t *safewinenv[SAFE_WINENVC] = {
 static int usage(int rv)
 {
     FILE *os = rv == 0 ? stdout : stderr;
-    fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", STR_INTNAME);
+    fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", PROJECT_NAME);
     fprintf(os, "Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n");
     fprintf(os, " -D, -[-]debug      print replaced arguments and environment\n");
     fprintf(os, "                    instead executing PROGRAM.\n");
@@ -138,15 +128,15 @@ static int usage(int rv)
     fprintf(os, "     -[-]cwd=DIR    change working directory to DIR before calling PROGRAM\n");
     fprintf(os, "     -[-]root=DIR   use DIR as posix root\n\n");
     if (rv == 0)
-        fputs(aslicense, os);
+        fputs(PROJECT_LICENSE, os);
     return rv;
 }
 
 static int version(int license)
 {
-    fprintf(stdout, "%s versiom %s compiled on %s\n", STR_INTNAME, STR_VERSION, __DATE__);
+    fprintf(stdout, "%s versiom %s compiled on %s\n", PROJECT_NAME, PROJECT_VERSION_STR, __DATE__);
     if (license)
-        fputs(aslicense, stdout);
+        fputs(PROJECT_LICENSE, stdout);
     return 0;
 }
 
