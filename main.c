@@ -348,8 +348,7 @@ static int isposixpath(const wchar_t *str)
         /* No additional slashes */
         mp = pathfixed;
         while (mp[i] != 0) {
-            size_t n = endswithchrs(str, L"'\"");
-            if (wcsncmp(str, mp[i], n) == 0)
+            if (wcscmp(str, mp[i]) == 0)
                 return i + 201;
             i++;
         }
@@ -478,29 +477,27 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
         c  = 0;
         while ((e = wcschr(b, L':'))) {
             int cn = 1;
-            int ch = *(e + 1);
-            if ((e == (b + 1)) && iswinpath(b)) {
+            if (iswinpath(b)) {
                 /*
                  * We have <ALPHA>:[/\]
                  * Find next colon
                  */
-                if ((ch != L'\0') && ((e = wcschr(b + 2, L':')) != 0)) {
-                    sa[c] = xwcsndup(b, e - b);
-                    fs2bs(sa[c++]);
-                    s = e + cn;
+                if ((e = wcschr(b + 2, L':')) != 0) {
+                    /* Windows path */
+                    sa[c++] = xwcsndup(b, e - b);
                 }
                 else {
                     /* No more paths */
-                    sa[c] = xwcsdup(s);
-                    fs2bs(sa[c++]);
-                    s = 0;
-                    break;
+                    sa[c++] = xwcsdup(s);
+                    *tokens = c;
+                    return sa;
                 }
             }
-            else if (ch == L'/' || ch == L'.' || ch == L':' || ch == L'\0') {
-                size_t nn = (size_t)(e - b);
+            else {
+                wchar_t *p;
                 /* Is the previous token path or flag */
-                if (isposixpath(b)) {
+                p = xwcsndup(b, (size_t)(e - b));
+                if (isposixpath(p)) {
                     while (*(e + cn) == L':') {
                         /* Drop multiple colons
                          */
@@ -508,16 +505,16 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
                     }
                 }
                 else {
+                    wcscat(p, L":");
                     /* Copy ':' as well */
-                    nn++;
                 }
-                sa[c++] = xwcsndup(b, nn);
+                sa[c++] = p;
                 s = e + cn;
             }
             b = e + cn;
         }
     }
-    if (s && *s != L'\0') {
+    if (*s != L'\0') {
         sa[c++] = xwcsdup(s);
     }
     *tokens = c;
@@ -526,7 +523,7 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
 
 static wchar_t *mergepath(wchar_t * const *paths)
 {
-    int  i, sc = 2;
+    int  i, sc = 0;
     size_t len = 0;
     wchar_t *rv;
     wchar_t *const *pp;
@@ -540,15 +537,16 @@ static wchar_t *mergepath(wchar_t * const *paths)
     pp = paths;
     for (i = 0; pp[i] != 0; i++) {
         len = wcslen(pp[i]);
-        if ((len == 0) || (pp[i][len - 1] == L':')) {
-            /* do not add semicolon before next path */
-            sc = 0;
+        if (len > 0) {
+            if (sc++ > 0) {
+                wcscat(rv, L";");
+            }
+            if (pp[i][len - 1] == L':') {
+                /* do not add semicolon before next path */
+                sc = 0;
+            }
+            wcscat(rv, pp[i]);
         }
-        if (i > 0 && sc != 1) {
-            wcscat(rv, L";");
-        }
-        wcscat(rv, pp[i]);
-        sc++;
     }
     return rv;
 }
@@ -568,6 +566,8 @@ static wchar_t *posix2winpath(wchar_t *pp)
     m = isposixpath(pp);
     if (m == 0) {
         /* Not a posix path */
+        if (iswinpath(pp))
+            fs2bs(pp);
         return pp;
     }
     else if (m == 100) {
