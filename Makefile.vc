@@ -1,0 +1,77 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+PROJECT = posix2wx
+# Tools
+CC = cl.exe
+LINK = link.exe
+RC = rc.exe
+MT = mt.exe
+
+!IF !DEFINED(BUILD_CPU) || "$(BUILD_CPU)" == ""
+!ERROR Must specify BUILD_CPU matching compiler x86 or x64
+!ENDIF
+!IF "$(BUILD_CPU)" == "x86"
+CPUFLAGS = -D_X86_=1
+MACHINE = X86
+!ELSE
+CPUFLAGS = -DWIN64 -D_WIN64
+MACHINE = X64
+!ENDIF
+!IF !DEFINED(WINVER) || "$(WINVER)" == ""
+WINVER = 0x0601
+!ENDIF
+
+BUILDBIN = $(WORKDIR)\$(PROJECT).exe
+BUILDRES = $(WORKDIR)\$(PROJECT).res
+BUILDPDB = $(WORKDIR)\$(PROJECT).pdb
+BUILDMFT = $(BUILDBIN).manifest
+
+WORKDIR = $(BUILD_CPU)_RELEASE
+CLEANTARGET = rd /s /q $(WORKDIR)
+MAKEWORKDIR = md $(WORKDIR)
+
+CFLAGS = $(CFLAGS) -DNDEBUG -DWIN32 -D_WINNT -DWINNT -D_WIN32_WINNT=$(WINVER) -DWINVER=$(WINVER) $(CPUFLAGS)
+CFLAGS = $(CFLAGS) -D_CRT_SECURE_NO_DEPRECATE $(EXTRA_CFLAGS)
+CLOPTS = /c /nologo -MD -W3 -O2 -Ob2 -Zi -EHsc
+PDBFLAGS = -Fo$(WORKDIR)\ -Fd$(WORKDIR)\$(PROJECT)
+LFLAGS = /nologo /INCREMENTAL:NO /DEBUG /OPT:REF /SUBSYSTEM:CONSOLE /MACHINE:$(MACHINE) $(EXTRA_LDLAGS)
+LDLIBS = kernel32.lib
+
+OBJECTS = \
+	$(WORKDIR)\main.obj
+
+all : $(WORKDIR) $(BUILDBIN)
+
+$(WORKDIR) :
+	@$(MAKEWORKDIR)
+
+.c{$(WORKDIR)}.obj:
+	$(CC) $(CLOPTS) $(CFLAGS) $(PDBFLAGS) $<
+
+$(BUILDRES): util.rc
+	$(RC) /l 0x409 /n /d NDEBUG /fo $(BUILDRES) util.rc
+
+$(BUILDBIN): $(WORKDIR) $(OBJECTS) $(BUILDRES)
+	$(LINK) $(LFLAGS) $(OBJECTS) $(BUILDRES) $(LDLIBS) /out:$(BUILDBIN) /pdb:$(BUILDPDB)
+	@if exist $(BUILDMFT) \
+		$(MT) -nologo -manifest $(BUILDMFT) -outputresource:$(BUILDBIN);2
+
+install : all
+	@-xcopy /I /Y /Q "$(WORKDIR)\*.so"  "$(PREFIX)"
+	@-xcopy /I /Y /Q "$(WORKDIR)\*.pdb" "$(PREFIX)"
+
+clean:
+	@-$(CLEANTARGET) 2>NUL

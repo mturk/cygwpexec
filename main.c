@@ -13,11 +13,6 @@
  *
  */
 
-#define _CRT_SECURE_NO_DEPRECATE
-#define WIN32_LEAN_AND_MEAN
-#define WINVER 0x0601
-#define _WIN32_WINNT WINVER
-
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
