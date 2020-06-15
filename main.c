@@ -385,19 +385,16 @@ static wchar_t *cmdoptionval(wchar_t *str)
             if (isposixpath(s) || iswinpath(s))
                 return s;
         }
-        else if (strstartswith(s, L"LIBPATH:", 1)) {
-            return s + 8;
-        }
     }
     if (isposixpath(str)) {
         /* The option starts with known path */
         return 0;
     }
-    s = str;
+    s = str + 1;
     while (*s != L'\0') {
         s++;
-        if (*s == L'=') {
-            /* Return poonter after '=' */
+        if ((*s == L'=') || ((*str == L'/') && (*s == L':'))) {
+            /* Return poonter after '=' or ':' */
             return s + 1;
         }
     }
