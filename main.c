@@ -540,7 +540,7 @@ static wchar_t *mergepath(wchar_t * const *paths)
     return rv;
 }
 
-static wchar_t *posix2winpath(wchar_t *pp)
+static wchar_t *posix2win(wchar_t *pp)
 {
     int m;
     wchar_t *rv;
@@ -589,7 +589,7 @@ static wchar_t *posix2winpath(wchar_t *pp)
     return rv;
 }
 
-static wchar_t *posix2win(const wchar_t *str)
+static wchar_t *convert2win(const wchar_t *str)
 {
     wchar_t *rv;
     wchar_t **pa;
@@ -602,7 +602,7 @@ static wchar_t *posix2win(const wchar_t *str)
     pa = splitpath(str, &tokens);
     for (i = 0; i < tokens; i++) {
         wchar_t *pp = pa[i];
-        pa[i] = posix2winpath(pp);
+        pa[i] = posix2win(pp);
     }
     rv = mergepath(pa);
     wafree(pa);
@@ -686,7 +686,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             }
             if (*e == L'\'' || *e == L'"')
                 e++;
-            if ((p = posix2win(e)) != 0) {
+            if ((p = convert2win(e)) != 0) {
                 if (e != o) {
                     *e = L'\0';
                     if (debug) {
@@ -717,7 +717,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             e = e + 1;
             if (*e == L'\'' || *e == '"')
                 e++;
-            if ((wcslen(e) > 3) && ((p = posix2win(e)) != 0)) {
+            if ((wcslen(e) > 3) && ((p = convert2win(e)) != 0)) {
                 *e = L'\0';
                 if (debug) {
                     wprintf(L"     * %s%s\n", o, p);
@@ -895,7 +895,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
     if (cwd != 0) {
         /* Use the new cwd */
-        cwd = posix2winpath(cwd);
+        cwd = posix2win(cwd);
         if (_wchdir(cwd) != 0) {
             i = errno;
             _wperror(L"Fatal error _wchdir()");
@@ -954,7 +954,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         wchar_t *sebuf;
         wchar_t *inbuf;
 
-        sebuf = posix2win(cpath);
+        sebuf = convert2win(cpath);
         inbuf = xwcsconcat(sebuf ? sebuf : cpath, stdwinpaths);
         xfree(sebuf);
         sebuf = (wchar_t *)xwalloc(8192);
@@ -978,7 +978,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     else if (opath != 0) {
         wchar_t *pxbuf;
 
-        pxbuf = posix2win(opath);
+        pxbuf = convert2win(opath);
         realpwpath = xwcsconcat(L"PATH=", pxbuf ? pxbuf : opath);
         xfree(pxbuf);
         xfree(opath);
