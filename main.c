@@ -84,7 +84,7 @@ static const wchar_t *posixpenv[] = {
     0
 };
 
-#define SAFE_WINENVC 20
+#define SAFE_WINENVC 25
 static const wchar_t *safewinenv[SAFE_WINENVC] = {
     L"COMPUTERNAME=",
     L"COMSPEC=",
@@ -98,6 +98,11 @@ static const wchar_t *safewinenv[SAFE_WINENVC] = {
     L"PROCESSOR_IDENTIFIER=",
     L"PROCESSOR_LEVEL=",
     L"PROCESSOR_REVISION=",
+    L"PROGRAMDATA=",
+    L"PROGRAMFILES=",
+    L"PROGRAMFILES(X86)=",
+    L"PROGRAMW6432=",
+    L"PUBLIC=",
     L"SESSIONNAME=",
     L"SYSTEMDRIVE=",
     L"SYSTEMROOT=",
@@ -235,21 +240,6 @@ static wchar_t *xwcsconcat(const wchar_t *s1, const wchar_t *s2)
     if(l2 > 0)
         wmemcpy(cp, s2, l2);
     return res;
-}
-
-static size_t endswithchrs(const wchar_t *str, const wchar_t *ch)
-{
-    const wchar_t *s;
-    size_t n = wcslen(str);
-
-    s = str + n;
-    if (s > str) {
-        --s;
-        if (wcschr(ch, *s) != 0) {
-            return (size_t)(s - str);
-        }
-    }
-    return n;
 }
 
 #if 0
@@ -420,11 +410,10 @@ static wchar_t **splitsev(const wchar_t *str)
 {
     int i, c = 0;
     wchar_t **sa = 0;
-    const wchar_t *b;
+    const wchar_t *b = str;
 
-    if (*str == L'\0')
+    if (*b == L'\0')
         return 0;
-    b = str;
     while (*b != L'\0') {
         if (*b++ == L' ')
             c++;
@@ -621,15 +610,16 @@ static wchar_t *posix2win(const wchar_t *str)
 }
 
 /*
- * Remove trailing char if it's one of chars
+ * Remove trailing paths separators
  */
-static void rmtrailingchrs(wchar_t *str, const wchar_t *ch)
+static void rmtrailingsep(wchar_t *s)
 {
-    size_t n = endswithchrs(str, ch);
+    size_t i = xwcslen(s);
 
-    if (n > 0) {
-        *(str + n) = L'\0';
-    }
+    for (i = i - 1; (i >= 0) && (s[i] == L'\\' || s[i] == L'/'); i--)
+        ;
+    s[i + 1] = L'\0';
+
 }
 
 static wchar_t *getposixwroot(wchar_t *argroot)
@@ -648,7 +638,7 @@ static wchar_t *getposixwroot(wchar_t *argroot)
         /*
          * Remove trailing slash (if present)
          */
-        rmtrailingchrs(r, L"/\\");
+        rmtrailingsep(r);
         /*
          * Verify if the provided path
          * contains bash.exe
