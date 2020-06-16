@@ -49,6 +49,27 @@ Options are:
 Command options are case insensitive and could have one or two dashes
 which means that `-debug -Debug and --DEBUG` are all valid oprions.
 
+## Posix root
+
+Posix root is used to replace posix parts with posix environment root
+location inside Windows environment.
+
+Use `-root` command line option or `POSIX_ROOT` environment variable
+to setup the install location of the current posix subsystem.
+
+If you instealled your Cygwin inside `C:\cygwin64` then you will use
+that for you root or `POSIX_ROOT`
+```
+    $ export POSIX_ROOT=C:/cygwin64
+    ...
+    $ posix2wx ... -f1=/usr/local
+    or
+    $ posix2wx -root=C:/cygwin64 ... -f1=/usr/local
+
+    --f1 parameter will evaluate to C:\cygwin64\usr\local
+```
+
+
 ## Clean PATH
 
 When you pass `-clean` option to posix2wx the program will replace `PATH`
