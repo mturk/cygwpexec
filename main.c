@@ -846,15 +846,15 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                 }
                 if (*p == L'\0')
                     return usage(1);
-                else if (wcscmp(p, L"V") == 0)
+                else if (_wcsicmp(p, L"v") == 0)
                     return version(0);
                 else if (_wcsicmp(p, L"version") == 0)
                     return version(1);
-                else if (wcscmp(p, L"D") == 0 || _wcsicmp(p, L"debug") == 0)
+                else if (_wcsicmp(p, L"d") == 0 || _wcsicmp(p, L"debug") == 0)
                     debug = 1;
-                else if (wcscmp(p, L"C") == 0 || _wcsicmp(p, L"clean") == 0)
+                else if (_wcsicmp(p, L"c") == 0 || _wcsicmp(p, L"clean") == 0)
                     cleanpath = 1;
-                else if (wcscmp(p, L"?") == 0 || _wcsicmp(p, L"help") == 0)
+                else if (_wcsicmp(p, L"?") == 0 || _wcsicmp(p, L"help") == 0)
                     return usage(0);
                 else if (_wcsnicmp(p, L"env=", 4) == 0)
                     sev = xwcsdup(p + 4);
