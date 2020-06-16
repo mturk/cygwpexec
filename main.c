@@ -124,7 +124,7 @@ static int usage(int rv)
     fprintf(os, " -?, -[-]help       print this screen and exit.\n");
     fprintf(os, " -C, -[-]clean      use CLEAN_PATH environment variable instead PATH\n");
     fprintf(os, "     -[-]env=LIST   pass only environment variables listed inside LIST\n");
-    fprintf(os, "                    variables must be comma separated.\n");
+    fprintf(os, "                    variables must be separated space character.\n");
     fprintf(os, "     -[-]cwd=DIR    change working directory to DIR before calling PROGRAM\n");
     fprintf(os, "     -[-]root=DIR   use DIR as posix root\n\n");
     if (rv == 0)
