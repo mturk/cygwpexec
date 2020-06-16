@@ -36,12 +36,12 @@ Execute PROGRAM [ARGUMENTS]...
 Options are:
 
 -d, -[-]debug      print replaced arguments and environment
-				   instead executing PROGRAM
+                   instead executing PROGRAM
 -v, -[-]version    print version information and exit.
 -?, -[-]help       print this screen and exit.
 -c, -[-]clean      use CLEAN_PATH environment variable instead PATH
-	-[-]env=LIST   pass only environment variables listed inside LIST
-				   variables must be separated space character.
+    -[-]env=LIST   pass only environment variables listed inside LIST
+                   variables must be separated space character.
     -[-]cwd=DIR    change working directory to DIR before calling PROGRAM
     -[-]root=DIR   use DIR as posix root
 ```
@@ -58,8 +58,8 @@ evaluated as
 ```
 PATH=%CLEAN_PATH%;%SystemRoot%\\System32;
      %SystemRoot%;
-	 %SystemRoot%\\System32\\Wbem;
-	 %SystemRoot%\\System32\\WindowsPowerShell\\v1.0
+     %SystemRoot%\\System32\\Wbem;
+     %SystemRoot%\\System32\\WindowsPowerShell\\v1.0
 ```
 For example
 ```
