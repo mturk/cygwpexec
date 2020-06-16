@@ -31,19 +31,19 @@ and environment variables to windows format.
 
 Here is what the usage screan displays
 ```
-Usage posix2wx [OPTIONS]... PROGRAM [ARGUMENTS]...
-Execute PROGRAM [ARGUMENTS]...
-Options are:
+    Usage posix2wx [OPTIONS]... PROGRAM [ARGUMENTS]...
+    Execute PROGRAM [ARGUMENTS]...
+    Options are:
 
--D, -[-]debug      print replaced arguments and environment
-instead executing PROGRAM
--V, -[-]version    print version information and exit.
--?, -[-]help       print this screen and exit.
--C, -[-]clean      use CLEAN_PATH environment variable instead PATH
--[-]env=LIST   pass only environment variables listed inside LIST
-variables must be separated space character.
--[-]cwd=DIR    change working directory to DIR before calling PROGRAM
--[-]root=DIR   use DIR as posix root
+    -D, -[-]debug      print replaced arguments and environment
+                       instead executing PROGRAM
+    -V, -[-]version    print version information and exit.
+    -?, -[-]help       print this screen and exit.
+    -C, -[-]clean      use CLEAN_PATH environment variable instead PATH
+        -[-]env=LIST   pass only environment variables listed inside LIST
+                       variables must be separated space character.
+    -[-]cwd=DIR        change working directory to DIR before calling PROGRAM
+    -[-]root=DIR       use DIR as posix root
 ```
 Note that long command options are case insensitive and have one or two dashes
 which means that
@@ -62,7 +62,9 @@ environment variable with `CLEAN_PATH` variable and evalue standard windows
 minimum path requirements. The final PATH environment variable will be
 evaluated as
 ```
-PATH=%CLEAN_PATH%;%SystemRoot%\\System32;%SystemRoot%;%SystemRoot%\\System32\\Wbem;%SystemRoot%\\System32\\WindowsPowerShell\\v1.0
+    PATH=%CLEAN_PATH%;%SystemRoot%\\System32;%SystemRoot%;
+         %SystemRoot%\\System32\\Wbem;
+         %SystemRoot%\\System32\\WindowsPowerShell\\v1.0
 ```
 Note that the new `PATH` will be evauated using `ExpandEnvironmentStrings` function and the lenght of expanded
 variables must not exceed 8190 characters.
@@ -74,7 +76,7 @@ $ posix2wx -clean cmd.exe /c set
 will replace PATH with processed CLEAN_PATH
 ```
 
-Note that `-clean and CLEAN_PATH` will be appled to `posix2wx` before calling spawn function meaning
+Note that `-clean and CLEAN_PATH` will be applied to `posix2wx` before calling spawn function meaning
 that the program to be run and all of its dependencies must be in that new PATH.
 
 ## Safe environment
