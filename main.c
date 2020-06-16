@@ -275,7 +275,7 @@ static int wchrimatch(const wchar_t *wstr, const wchar_t *wexp)
                 return -1;
             break;
             case L'?':
-                if (isalpha(*wstr & UCHAR_MAX) != 0)
+                if (isalpha(*wstr & UCHAR_MAX) == 0)
                     return 1;
             break;
             default:
@@ -328,7 +328,7 @@ static int isposixpath(const wchar_t *str)
     int i = 0;
     const wchar_t **mp;
 
-    if (*str != '/') {
+    if (*str != L'/') {
         if (isrelpath(str))
             return 300;
         else
