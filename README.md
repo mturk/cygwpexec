@@ -8,9 +8,9 @@ utility which translates Cygwin (posix) paths to their windows
 equivalents from shell.
 
 For example a standard usage would be:
-
+```
     program.exe "--f1=`cygpath -w /tmp/f1`" "`cygpath -w /usr/f1`" ...
-
+```
 This can become very complex and it requires that the shell
 script is aware it runs inside the Cygwin environment.
 
@@ -21,16 +21,16 @@ sure the multiple path elements are correctly separated using
 windows path separator `;`.
 
 Using posix2wx the upper example would become:
-
+```
     posix2wx program.exe --f1=/tmp/f1 /usr/f1 ...
-
+```
 Before starting `program.exe` posix2wx converts all command line
 and environment variables to windows format.
 
-### Usage
+## Usage
 
 Here is what the usage screan displays
-
+```
     Usage posix2wx [OPTIONS]... PROGRAM [ARGUMENTS]...
     Execute PROGRAM [ARGUMENTS]...
     Options are:
@@ -44,13 +44,33 @@ Here is what the usage screan displays
                            variables must be separated space character.
             -[-]cwd=DIR    change working directory to DIR before calling PROGRAM
             -[-]root=DIR   use DIR as posix root
-
+```
 Note that long command options are case insensitive and have one or two dashes
 which means that
+```
     -debug
     -Debug
     --DEBUG
+```
 are all valid oprions which cause processing and displaying processed
-command line and arguments, without executing the PROGRAM itself
+command line and arguments, without executing the `PROGRAM` itself
 
+## Clean PATH
+
+When you pass `-clean` option to posix2wx the program will replace `PATH`
+environment variable with `CLEAN_PATH` variable and evalue standard windows
+minimum path requirements. The final PATH environment variable will be
+evaluated as
+```
+	PATH=%CLEAN_PATH%;%SystemRoot%\\System32;%SystemRoot%;%SystemRoot%\\System32\\Wbem;%SystemRoot%\\System32\\WindowsPowerShell\\v1.0
+```
+Note that the new `PATH` will be evauated using `ExpandEnvironmentStrings` function and the lenght of expanded
+variables must not exceed 8190 characters.
+For example
+```
+	$ export CLEAN_PATH=/cygdrive/c/perl/bin:%ProgramFiles%\\SomeProgram"
+	$ posix2wx -clean cmd.exe /c set
+
+	will replace PATH with processed CLEAN_PATH
+```
 
