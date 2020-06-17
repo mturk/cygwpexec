@@ -141,7 +141,7 @@ static int version(int license)
 }
 
 /**
- * Maloc that causes process exit in case of ENOMEM
+ * Malloc that causes process exit in case of ENOMEM
  */
 static void *xmalloc(size_t size)
 {

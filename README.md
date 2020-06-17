@@ -1,4 +1,4 @@
-Run windows applications under Posix envinonment
+Run windows applications under Posix environment
 ================================================
 
 Cygwin and Msys2 use posix paths and environments which makes most of
@@ -29,7 +29,7 @@ and environment variables to windows format.
 
 ## Usage
 
-Here is what the usage screan displays
+Here is what the usage screen displays
 ```
 Usage posix2wx [OPTIONS]... PROGRAM [ARGUMENTS]...
 Execute PROGRAM [ARGUMENTS]...
@@ -47,7 +47,7 @@ Options are:
 ```
 
 Command options are case insensitive and could have one or two dashes
-which means that `-debug -Debug and --DEBUG` are all valid oprions.
+which means that `-debug -Debug and --DEBUG` are all valid options.
 
 ## Posix root
 
@@ -57,7 +57,7 @@ location inside Windows environment.
 Use `-root` command line option or `POSIX_ROOT` environment variable
 to setup the install location of the current posix subsystem.
 
-If you instealled your Cygwin inside `C:\cygwin64` then you will use
+If you installed your Cygwin inside `C:\cygwin64` then you will use
 that for you root or `POSIX_ROOT`
 ```
     $ export POSIX_ROOT=C:/cygwin64
@@ -73,7 +73,7 @@ that for you root or `POSIX_ROOT`
 ## Clean PATH
 
 When you pass `-clean` option to posix2wx the program will replace `PATH`
-environment variable with `CLEAN_PATH` variable and evalue standard windows
+environment variable with `CLEAN_PATH` variable and evaluate standard windows
 minimum path requirements. The final PATH environment variable will be
 evaluated as
 ```
@@ -90,8 +90,8 @@ $ posix2wx -clean cmd.exe /c set
 will replace PATH with processed CLEAN_PATH
 ```
 
-The new `PATH` is evauated and expanded using `ExpandEnvironmentStrings`
-function and the lenght of expanded variables must not exceed 8190 characters.
+The new `PATH` is evaluated and expanded using `ExpandEnvironmentStrings`
+function and the length of expanded variables must not exceed 8190 characters.
 
 Note that `-clean and CLEAN_PATH` will be applied to `posix2wx` before calling
 spawn function meaning that the program to be run and all of its dependencies
