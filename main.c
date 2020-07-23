@@ -51,6 +51,9 @@ static const wchar_t *pathmatches[] = {
     L"/etc/*",
     L"/dev/*",
     L"/proc/*",
+    L"/dir/*",
+    L"/mingw*/*",
+    L"/clang*/*",
     0
 };
 
@@ -65,6 +68,7 @@ static const wchar_t *pathfixed[] = {
     L"/var",
     L"/run",
     L"/etc",
+    L"/dir",
     0
 };
 
@@ -315,7 +319,10 @@ static int iswinpath(const wchar_t *s)
 
 static int isrelpath(const wchar_t *s)
 {
+    int dots = 0;
     while (*(s++) == L'.') {
+        if (dots++ > 2)
+            return 0;
         if (*s == L'\0' || *s == L'/' || *s == L'\\')
             return 1;
     }
@@ -631,20 +638,10 @@ static wchar_t *getposixwroot(wchar_t *argroot)
 
     if (r == 0) {
         /*
-         * No --root-<PATH> was provided
-         * Try POSIX_ROOT environment var
+         * No --root=<PATH> was provided
+         * Try POSIX_ROOT environment variable
          */
         r = xgetenv(L"POSIX_ROOT");
-    }
-    if (r == 0) {
-        /*
-         * Use HOME
-         */
-        r = xgetenv(L"HOME");
-    }
-    if (r == 0) {
-        /* This won't help much */
-        return xgetenv(L"SYSTEMDRIVE");
     }
     if (r != 0) {
         /*
