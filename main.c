@@ -81,6 +81,7 @@ static const wchar_t *posixpenv[] = {
     L"PS1=",
     L"_=",
     L"!::=",
+    L"!;=",
     L"POSIX_ROOT=",
     L"SAFE_ENVVARS=",
     L"PATH=",
