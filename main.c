@@ -869,6 +869,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         dupwargv[narg++] = xwcsdup(wargv[i]);
     }
     opath = xgetenv(L"PATH");
+    if (opath == 0) {
+        fprintf(stderr, "Cannot determine initial PATH environment\n\n");
+        return usage(1);
+    }
     if (cleanpath) {
         cpath = xgetenv(L"CLEAN_PATH");
         if (cpath == 0) {
@@ -985,7 +989,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         xfree(sebuf);
         xfree(cpath);
     }
-    else if (opath != 0) {
+    else {
         wchar_t *pxbuf;
 
         pxbuf = convert2win(opath);
