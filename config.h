@@ -17,8 +17,8 @@
 #define _CONFIG_H_INCLUDED_
 
 #define PROJECT_NAME        "posix2wx"
-#define PROJECT_VERSION_STR "2.0.2"
-#define PROJECT_VERSION_CSV  2,0,2
+#define PROJECT_VERSION_STR "2.0.3"
+#define PROJECT_VERSION_CSV  2,0,3
 
 #define PROJECT_COPYRIGHT "Copyright(c) 2020 Mladen Turk"
 
