@@ -78,6 +78,7 @@ static const wchar_t *posixpenv[] = {
     L"ORIGINAL_TMP=",
     L"MINTTY_SHORTCUT=",
     L"EXECIGNORE=",
+    L"SHELL=",
     L"PS1=",
     L"_=",
     L"!::=",
@@ -89,12 +90,18 @@ static const wchar_t *posixpenv[] = {
     0
 };
 
-#define SAFE_WINENVC 25
-static const wchar_t *safewinenv[SAFE_WINENVC] = {
+static const wchar_t *safewinenv[] = {
+    L"ALLUSERSPROFILE=",
+    L"APPDATA=",
+    L"COMMONPROGRAMFILES(X86)=",
+    L"COMMONPROGRAMFILES=",
+    L"COMMONPROGRAMW6432=",
     L"COMPUTERNAME=",
     L"COMSPEC=",
     L"HOMEDRIVE=",
     L"HOMEPATH=",
+    L"JAVA_HOME=",
+    L"LOCALAPPDATA=",
     L"LOGONSERVER=",
     L"NUMBER_OF_PROCESSORS=",
     L"OS=",
@@ -104,9 +111,10 @@ static const wchar_t *safewinenv[SAFE_WINENVC] = {
     L"PROCESSOR_LEVEL=",
     L"PROCESSOR_REVISION=",
     L"PROGRAMDATA=",
-    L"PROGRAMFILES=",
     L"PROGRAMFILES(X86)=",
+    L"PROGRAMFILES=",
     L"PROGRAMW6432=",
+    L"PSMODULEPATH=",
     L"PUBLIC=",
     L"SESSIONNAME=",
     L"SYSTEMDRIVE=",
@@ -115,8 +123,10 @@ static const wchar_t *safewinenv[SAFE_WINENVC] = {
     L"TMP=",
     L"USERDOMAIN=",
     L"USERNAME=",
+    L"USERPROFILE=",
     L"WINDIR="
 };
+
 
 static int usage(int rv)
 {
@@ -206,7 +216,7 @@ static wchar_t *xwcsndup(const wchar_t *s, size_t size)
 
 static wchar_t *xwcsdup(const wchar_t *s)
 {
-    return xwcsndup(s, SHRT_MAX);
+    return xwcsndup(s, SHRT_MAX - 2);
 }
 
 static wchar_t *xgetenv(const wchar_t *s)
@@ -429,7 +439,7 @@ static wchar_t **splitsev(const wchar_t *str)
         if (*b++ == L' ')
             c++;
     }
-    sa = waalloc(c + SAFE_WINENVC + 2);
+    sa = waalloc(c + _countof(safewinenv) + 2);
     if (c > 0 ) {
         const wchar_t *e;
         c  = 0;
@@ -454,7 +464,7 @@ static wchar_t **splitsev(const wchar_t *str)
         sa[c] = xwcsdup(str);
         wcscat(sa[c++], L"=");
     }
-    for (i = 0; i < SAFE_WINENVC; i++) {
+    for (i = 0; i < _countof(safewinenv); i++) {
         sa[c++] = xwcsdup(safewinenv[i]);
     }
     return sa;
@@ -555,6 +565,7 @@ static wchar_t *posix2win(wchar_t *pp)
 {
     int m;
     wchar_t *rv;
+    wchar_t  windrive[] = { 0, L':', L'\\', 0};
 
     if (wcschr(pp, L'/') == 0) {
         /* Nothing to do */
@@ -572,14 +583,12 @@ static wchar_t *posix2win(wchar_t *pp)
     }
     else if (m == 100) {
         /* /cygdrive/x/... absolute path */
-        wchar_t windrive[] = { 0, L':', L'\\', 0};
         windrive[0] = towupper(pp[10]);
         fs2bs(pp + 12);
         rv = xwcsconcat(windrive, pp + 12);
     }
     else if (m == 101) {
         /* /x/... msys absolute path */
-        wchar_t windrive[] = { 0, L':', L'\\', 0};
         windrive[0] = towupper(pp[1]);
         fs2bs(pp + 3);
         rv = xwcsconcat(windrive, pp + 3);
@@ -600,7 +609,7 @@ static wchar_t *posix2win(wchar_t *pp)
     return rv;
 }
 
-static wchar_t *convert2win(const wchar_t *str)
+static wchar_t *convert2win(const wchar_t *str, int dup)
 {
     wchar_t *rv;
     wchar_t **pa;
@@ -608,7 +617,10 @@ static wchar_t *convert2win(const wchar_t *str)
 
     if (wcschr(str, L'/') == 0) {
         /* Nothing to do */
-        return 0;
+        if (dup)
+            return xwcsdup(str);
+        else
+            return 0;
     }
     pa = splitpath(str, &tokens);
     for (i = 0; i < tokens; i++) {
@@ -691,7 +703,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             }
             if (*e == L'\'' || *e == L'"')
                 e++;
-            if ((p = convert2win(e)) != 0) {
+            if ((p = convert2win(e, 0)) != 0) {
                 if (e != o) {
                     *e = L'\0';
                     if (debug) {
@@ -722,7 +734,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             e = e + 1;
             if (*e == L'\'' || *e == '"')
                 e++;
-            if ((wcslen(e) > 3) && ((p = convert2win(e)) != 0)) {
+            if ((wcslen(e) > 3) && ((p = convert2win(e, 0)) != 0)) {
                 *e = L'\0';
                 if (debug) {
                     wprintf(L"     * %s%s\n", o, p);
@@ -807,13 +819,13 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     wchar_t **dupwargv = 0;
     wchar_t **dupwenvp = 0;
     wchar_t **safeenvp = 0;
-    wchar_t *crp = 0;
-    wchar_t *sev = 0;
-    wchar_t *cwd = 0;
-    wchar_t *opath = 0;
-    wchar_t *cpath = 0;
+    wchar_t *crp       = 0;
+    wchar_t *sev       = 0;
+    wchar_t *cwd       = 0;
+    wchar_t *opath     = 0;
+    wchar_t *cpath     = 0;
+    int cleanpath      = 0;
 
-    int cleanpath = 0;
     int envc = 0;
     int narg = 0;
     int opts = 1;
@@ -854,9 +866,9 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                     cleanpath = 1;
                 else if (_wcsicmp(p, L"?") == 0 || _wcsicmp(p, L"help") == 0)
                     return usage(0);
-                else if (_wcsnicmp(p, L"env=", 4) == 0)
+                else if (_wcsnicmp(p, L"env=",  4) == 0)
                     sev = xwcsdup(p + 4);
-                else if (_wcsnicmp(p, L"cwd=", 4) == 0)
+                else if (_wcsnicmp(p, L"cwd=",  4) == 0)
                     cwd = xwcsdup(p + 4);
                 else if (_wcsnicmp(p, L"root=", 5) == 0)
                     crp = xwcsdup(p + 5);
@@ -886,6 +898,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         }
     }
     posixwroot = getposixwroot(crp);
+    if (posixwroot == 0) {
+        /* Fallback to HOMEDRIVE */
+        posixwroot = xgetenv(L"HOMEDRIVE");
+    }
     if (posixwroot == 0) {
         /* Should not happen */
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
@@ -969,9 +985,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         wchar_t *sebuf;
         wchar_t *inbuf;
 
-        sebuf = convert2win(cpath);
-        inbuf = xwcsconcat(sebuf ? sebuf : cpath, stdwinpaths);
+        sebuf = convert2win(cpath, 1);
+        inbuf = xwcsconcat(sebuf, stdwinpaths);
         xfree(sebuf);
+        xfree(opath);
         sebuf = (wchar_t *)xwalloc(8192);
         /* Add standard set of Windows paths */
         i = ExpandEnvironmentStringsW(inbuf, sebuf, 8190);
@@ -985,28 +1002,22 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             fprintf(stderr, "for \'%S\'\n\n", sebuf);
             return usage(1);
         }
-        realpwpath = xwcsconcat(L"PATH=", sebuf);
+        opath = sebuf;
         xfree(inbuf);
-        xfree(sebuf);
-        xfree(cpath);
     }
     else {
-        wchar_t *pxbuf;
-
-        pxbuf = convert2win(opath);
-        realpwpath = xwcsconcat(L"PATH=", pxbuf ? pxbuf : opath);
-        xfree(pxbuf);
-        xfree(opath);
+        cpath = opath;
+        opath = convert2win(cpath, 1);
     }
-    if (realpwpath == 0) {
-        fprintf(stderr, "Cannot determine PATH environment\n\n");
-        return usage(1);
-    }
+    rmtrailingsep(opath);
+    realpwpath = xwcsconcat(L"PATH=", opath);
     /*
      * Add aditional environment variables
      */
     dupwenvp[envc++] = realpwpath;
     dupwenvp[envc++] = xwcsconcat(L"POSIX_ROOT=", posixwroot);
+    xfree(opath);
+    xfree(cpath);
     /*
      * Call main worker function
      */
