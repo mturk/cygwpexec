@@ -24,7 +24,8 @@
 #include <io.h>
 #include <conio.h>
 #include <direct.h>
-#include "config.h"
+
+#include "posix2wx.h"
 
 static int debug = 0;
 
@@ -886,17 +887,6 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         fprintf(stderr, "Cannot determine initial PATH environment\n\n");
         return usage(1);
     }
-    if (cleanpath) {
-        cpath = xgetenv(L"CLEAN_PATH");
-        if (cpath == 0) {
-            /*
-             * -clean was given as option
-             * but the CLEAN_PATH envvar is missing
-             */
-            fprintf(stderr, "CLEAN_PATH cannot be empty\n\n");
-            return usage(1);
-        }
-    }
     posixwroot = getposixwroot(crp);
     if (posixwroot == 0) {
         /* Fallback to HOMEDRIVE */
@@ -907,12 +897,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
     }
-    if (debug) {
+    if (debug)
         wprintf(L"POSIX_ROOT : %s\n", posixwroot);
-    }
-    if (sev == 0) {
+    if (sev == 0)
         sev = xgetenv(L"SAFE_ENVVARS");
-    }
     if (sev != 0) {
         /*
          * We have array of comma separated
@@ -978,46 +966,15 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             }
         }
     }
-    /*
-     * Replace PATH with CLEAN_PATH if present
-     */
-    if (cpath != 0) {
-        wchar_t *sebuf;
-        wchar_t *inbuf;
-
-        sebuf = convert2win(cpath, 1);
-        inbuf = xwcsconcat(sebuf, stdwinpaths);
-        xfree(sebuf);
-        xfree(opath);
-        sebuf = (wchar_t *)xwalloc(8192);
-        /* Add standard set of Windows paths */
-        i = ExpandEnvironmentStringsW(inbuf, sebuf, 8190);
-        if ((i == 0) || (i > 8190)) {
-            fprintf(stderr, "Failed to expand standard Environment variables. (rv = %d)\n", i);
-            fprintf(stderr, "for \'%S\'\n\n", inbuf);
-            return usage(1);
-        }
-        if ((wcschr(sebuf, L'%') != 0) && (wchrimatch(sebuf, L"*%*%*") == 0)) {
-            fprintf(stderr, "Failed to resolve Environment variables for CLEAN_PATH\n");
-            fprintf(stderr, "for \'%S\'\n\n", sebuf);
-            return usage(1);
-        }
-        opath = sebuf;
-        xfree(inbuf);
-    }
-    else {
-        cpath = opath;
-        opath = convert2win(cpath, 1);
-    }
-    rmtrailingsep(opath);
-    realpwpath = xwcsconcat(L"PATH=", opath);
+    cpath = convert2win(opath, 1);
+    rmtrailingsep(cpath);
+    realpwpath = xwcsconcat(L"PATH=",cpath);
     /*
      * Add aditional environment variables
      */
     dupwenvp[envc++] = realpwpath;
     dupwenvp[envc++] = xwcsconcat(L"POSIX_ROOT=", posixwroot);
     xfree(opath);
-    xfree(cpath);
     /*
      * Call main worker function
      */

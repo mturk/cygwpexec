@@ -13,12 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-PROJECT = posix2wx
-# Tools
+# Originally contributed by Mladen Turk <mturk apache.org>
+#
 CC = cl.exe
-LINK = link.exe
+LN = link.exe
 RC = rc.exe
-MT = mt.exe
 
 !IF !DEFINED(BUILD_CPU) || "$(BUILD_CPU)" == ""
 !ERROR Must specify BUILD_CPU matching compiler x86 or x64
@@ -34,44 +33,46 @@ MACHINE = X64
 WINVER = 0x0601
 !ENDIF
 
-BUILDBIN = $(WORKDIR)\$(PROJECT).exe
-BUILDRES = $(WORKDIR)\$(PROJECT).res
-BUILDPDB = $(WORKDIR)\$(PROJECT).pdb
-BUILDMFT = $(BUILDBIN).manifest
-
+PROJECT = posix2wx
 WORKDIR = $(BUILD_CPU)_RELEASE
-CLEANTARGET = rd /s /q $(WORKDIR)
-MAKEWORKDIR = md $(WORKDIR)
+OUTPUT  = $(WORKDIR)\$(PROJECT).exe
 
-CFLAGS = $(CFLAGS) -DNDEBUG -DWIN32 -D_WINNT -DWINNT -D_WIN32_WINNT=$(WINVER) -DWINVER=$(WINVER) $(CPUFLAGS)
+CFLAGS = -DNDEBUG -DWIN32 -D_WIN32_WINNT=$(WINVER) -DWINVER=$(WINVER)
 CFLAGS = $(CFLAGS) -D_CRT_SECURE_NO_DEPRECATE -DUNICODE -D_UNICODE $(EXTRA_CFLAGS)
-CLOPTS = /c /nologo -MD -W3 -O2 -Ob2 -Zi -EHsc
-PDBFLAGS = -Fo$(WORKDIR)\ -Fd$(WORKDIR)\$(PROJECT)
-LFLAGS = /nologo /INCREMENTAL:NO /DEBUG /OPT:REF /SUBSYSTEM:CONSOLE /MACHINE:$(MACHINE) $(EXTRA_LDLAGS)
+CLOPTS = /c /nologo -MD -W3 -O2 -Ob2 -EHsc
+RFLAGS = /l 0x409 /n /d NDEBUG
+LFLAGS = /nologo /INCREMENTAL:NO /OPT:REF /SUBSYSTEM:CONSOLE /MACHINE:$(MACHINE) $(EXTRA_LFLAGS)
 LDLIBS = kernel32.lib $(EXTRA_LIBS)
 
-OBJECTS = \
-	$(WORKDIR)\main.obj
 
-all : $(WORKDIR) $(BUILDBIN)
+OBJECTS = \
+	$(WORKDIR)\$(PROJECT).obj \
+	$(WORKDIR)\$(PROJECT).res
+
+all : $(WORKDIR) $(OUTPUT)
 
 $(WORKDIR) :
-	@$(MAKEWORKDIR)
+	@-md $(WORKDIR)
 
 .c{$(WORKDIR)}.obj:
-	$(CC) $(CLOPTS) $(CFLAGS) $(PDBFLAGS) $<
+	$(CC) $(CLOPTS) $(CFLAGS) -Fo$(WORKDIR)\ $<
 
-$(BUILDRES): util.rc
-	$(RC) /l 0x409 /n /d NDEBUG /fo $(BUILDRES) util.rc
+.rc{$(WORKDIR)}.res:
+	$(RC) $(RFLAGS) /fo $@ $<
 
-$(BUILDBIN): $(WORKDIR) $(OBJECTS) $(BUILDRES)
-	$(LINK) $(LFLAGS) $(OBJECTS) $(BUILDRES) $(LDLIBS) /out:$(BUILDBIN) /pdb:$(BUILDPDB)
-	@if exist $(BUILDMFT) \
-		$(MT) -nologo -manifest $(BUILDMFT) -outputresource:$(BUILDBIN);2
+$(OUTPUT): $(WORKDIR) $(OBJECTS)
+	$(LN) $(LFLAGS) $(OBJECTS) $(LDLIBS) /out:$(OUTPUT)
 
+!IF !DEFINED(PREFIX) || "$(PREFIX)" == ""
+install:
+	@echo PREFIX is not defined
+	@echo Use `nmake install PREFIX=directory`
+	@echo.
+	@exit /B 1
+!ELSE
 install : all
-	@-xcopy /I /Y /Q "$(WORKDIR)\*.so"  "$(PREFIX)"
-	@-xcopy /I /Y /Q "$(WORKDIR)\*.pdb" "$(PREFIX)"
+	@-xcopy /I /Y /Q "$(WORKDIR)\*.exe" "$(PREFIX)"
+!ENDIF
 
 clean:
-	@-$(CLEANTARGET) 2>NUL
+	@-rd /S /Q $(WORKDIR) 2>NUL
