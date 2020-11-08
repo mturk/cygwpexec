@@ -14,7 +14,7 @@
  */
 
 #include <windows.h>
-#include "posix2wx.h"
+#include "config.h"
 
 #define IDI_MAINICON        101
 IDI_MAINICON         ICON  "posix2wx.ico"
