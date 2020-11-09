@@ -56,12 +56,17 @@ location inside Windows environment.
 Use `--root <directory>` command line option to setup the install location
 of the current posix subsystem.
 
-You can use `POSIX_ROOT` or `CYGWIN_ROOT` environment variable instead.
-If none are specified the `HOMEDIR` environment variable will be used.
+In case the `--root <directory>` was not specified the program will
+check the following environment varibles.
+First check `POSIX_ROOT` then `CYGWIN_ROOT` and finally `HOMEDIR`.
+
+Make sure that you provide a correct posix root since it will
+be used as prefix to `/usr, /bin, /tmp` constructing an actual
+Windows path.
 
 
-If you installed your Cygwin inside `C:\cygwin64` then you will use
-that for you root or `POSIX_ROOT`
+If you installed your Cygwin inside `C:\cygwin64` use
+that for you `--root` or `POSIX_ROOT`
 ```
     $ export POSIX_ROOT=C:/cygwin64
     ...
