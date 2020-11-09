@@ -107,13 +107,13 @@ static int usage(int rv)
     fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", PROJECT_NAME);
     fprintf(os, "Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n");
 #if defined(_HAVE_DEBUG_MODE)
-    fprintf(os, " -d       print replaced arguments and environment\n");
-    fprintf(os, "          instead executing PROGRAM.\n");
+    fprintf(os, " -d        print replaced arguments and environment\n");
+    fprintf(os, "           instead executing PROGRAM.\n");
 #endif
-    fprintf(os, " -v       print version information and exit.\n");
-    fprintf(os, " -h       print this screen and exit.\n");
-    fprintf(os, " -w <DIR> change working directory to DIR before calling PROGRAM\n");
-    fprintf(os, " -r <DIR> use DIR as posix root\n\n");
+    fprintf(os, " -v        print version information and exit.\n");
+    fprintf(os, " -h        print this screen and exit.\n");
+    fprintf(os, " -w <DIR>  change working directory to DIR before calling PROGRAM\n");
+    fprintf(os, " -r <DIR>  use DIR as posix root\n\n");
     if (rv == 0)
         fputs(PROJECT_LICENSE, os);
     return rv;
@@ -122,7 +122,7 @@ static int usage(int rv)
 static int version(int license)
 {
     fputs(PROJECT_NAME " version " PROJECT_VERSION_STR \
-          " (" __DATE__ " " __TIME__ ")", stdout);
+          " (" __DATE__ " " __TIME__ ")\n", stdout);
     if (license)
         fputs(PROJECT_LICENSE, stdout);
     return 0;
