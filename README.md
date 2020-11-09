@@ -38,25 +38,23 @@ Usage posix2wx [OPTIONS]... PROGRAM [ARGUMENTS]...
 Execute PROGRAM [ARGUMENTS]...
 Options are:
 
--v, -[-]version     print version information and exit.
--h, -[-]help        print this screen and exit.
--w, -[-]workdir DIR change working directory to DIR before calling PROGRAM
--r, -[-]root DIR    use DIR as posix root
+-v       print version information and exit.
+-h       print this screen and exit.
+-w <DIR> change working directory to DIR before calling PROGRAM
+-r <DIR> use DIR as posix root
 ```
 
-Command options are case insensitive and can have only one dash
-for short options. Long options can have one or two dashes.
-This means that `-R -r -root and --Root` are all valid options.
+Command options are case insensitive.
 
 ## Posix root
 
 Posix root is used to replace posix parts with posix environment root
 location inside Windows environment.
 
-Use `--root <directory>` command line option to setup the install location
+Use `-r <directory>` command line option to setup the install location
 of the current posix subsystem.
 
-In case the `--root <directory>` was not specified the program will
+In case the `-r <directory>` was not specified the program will
 check the following environment varibles.
 First check `POSIX_ROOT` then `CYGWIN_ROOT` and finally `HOMEDIR`.
 

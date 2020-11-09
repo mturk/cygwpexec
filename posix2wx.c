@@ -107,13 +107,13 @@ static int usage(int rv)
     fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", PROJECT_NAME);
     fprintf(os, "Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n");
 #if defined(_HAVE_DEBUG_MODE)
-    fprintf(os, " -d, -[-]debug       print replaced arguments and environment\n");
-    fprintf(os, "                     instead executing PROGRAM.\n");
+    fprintf(os, " -d       print replaced arguments and environment\n");
+    fprintf(os, "          instead executing PROGRAM.\n");
 #endif
-    fprintf(os, " -v, -[-]version     print version information and exit.\n");
-    fprintf(os, " -h, -[-]help        print this screen and exit.\n");
-    fprintf(os, " -w  -[-]workdir DIR change working directory to DIR before calling PROGRAM\n");
-    fprintf(os, " -r  -[-]root DIR    use DIR as posix root\n\n");
+    fprintf(os, " -v       print version information and exit.\n");
+    fprintf(os, " -h       print this screen and exit.\n");
+    fprintf(os, " -w <DIR> change working directory to DIR before calling PROGRAM\n");
+    fprintf(os, " -r <DIR> use DIR as posix root\n\n");
     if (rv == 0)
         fputs(PROJECT_LICENSE, os);
     return rv;
@@ -765,30 +765,39 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                 continue;
             }
 
-            if (*(p++) == L'-') {
-                if (*p == L'\0')
+            if (p[0] == L'-') {
+                if (p[1] == L'\0' || p[2] != L'\0')
                     return invalidarg(wargv[i]);
-                if (*p == L'-') {
-                    p++;
-                    if (p[0] == L'\0' || p[1] == L'\0')
-                        return invalidarg(wargv[i]);
-                }
-                if (_wcsicmp(p, L"v") == 0)
-                    return version(0);
-                else if (_wcsicmp(p, L"version") == 0)
-                    return version(1);
+                switch (p[1]) {
+                    case L'v':
+                        return version(0);
+                    break;
+                    case L'V':
+                        return version(1);
+                    break;
+                    case L'r':
+                    case L'R':
+                        crp = nnp;
+                    break;
+                    case L'w':
+                    case L'W':
+                        cwd = nnp;
+                    break;
 #if defined(_HAVE_DEBUG_MODE)
-                else if (_wcsicmp(p, L"d") == 0 || _wcsicmp(p, L"debug") == 0)
-                    debug = 1;
+                    case L'd':
+                    case L'D':
+                        debug = 1;
+                    break;
 #endif
-                else if (_wcsicmp(p, L"h") == 0 || _wcsicmp(p, L"help") == 0)
-                    return usage(0);
-                else if (_wcsicmp(p, L"w") == 0 || _wcsicmp(p, L"workdir") == 0)
-                    cwd = nnp;
-                else if (_wcsicmp(p, L"r") == 0 || _wcsicmp(p, L"root") == 0)
-                    crp = nnp;
-                else
-                    return invalidarg(wargv[i]);
+                    case L'h':
+                    case L'H':
+                    case L'?':
+                        return usage(0);
+                    break;
+                    default:
+                        return invalidarg(wargv[i]);
+                    break;
+                }
                 continue;
             }
             /* No more options */
