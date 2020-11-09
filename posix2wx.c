@@ -121,11 +121,17 @@ static int usage(int rv)
 
 static int version(int license)
 {
-    fputs(PROJECT_NAME " version " PROJECT_VERSION_STR " (" __DATE__ " " __TIME__ ")",
-          stdout);
+    fputs(PROJECT_NAME " version " PROJECT_VERSION_STR \
+          " (" __DATE__ " " __TIME__ ")", stdout);
     if (license)
         fputs(PROJECT_LICENSE, stdout);
     return 0;
+}
+
+static int invalidarg(const wchar_t *arg)
+{
+    fwprintf(stderr, L"Unknown option: %s\n\n", arg);
+    return usage(EINVAL);
 }
 
 /**
@@ -614,7 +620,7 @@ static wchar_t *getposixwroot(wchar_t *argroot)
 
 static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
-    int i, rc = 0;
+    int i;
     intptr_t rp;
     wchar_t *p;
     wchar_t *e;
@@ -718,10 +724,10 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     _flushall();
     rp = _wspawnvpe(_P_WAIT, wargv[0], wargv, wenvp);
     if (rp == (intptr_t)-1) {
-        rc = errno;
-        _wperror(L"Fatal error _wspawnvpe()");
-        fwprintf(stderr, L"Cannot execute: %s\n\n", wargv[0]);
-        return usage(rc);
+        i = errno;
+        fwprintf(stderr, L"Cannot execute program: %s\nFatal error: %s\n\n",
+                 wargv[0], _wcserror(i));
+        return usage(i);
     }
     return (int)rp;
 }
@@ -761,11 +767,11 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
 
             if (*(p++) == L'-') {
                 if (*p == L'\0')
-                    return usage(1);
+                    return invalidarg(wargv[i]);
                 if (*p == L'-') {
                     p++;
                     if (p[0] == L'\0' || p[1] == L'\0')
-                        return usage(1);
+                        return invalidarg(wargv[i]);
                 }
                 if (_wcsicmp(p, L"v") == 0)
                     return version(0);
@@ -782,7 +788,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                 else if (_wcsicmp(p, L"r") == 0 || _wcsicmp(p, L"root") == 0)
                     crp = nnp;
                 else
-                    return usage(1);
+                    return invalidarg(wargv[i]);
                 continue;
             }
             /* No more options */
@@ -796,7 +802,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
     opath = xgetenv(L"PATH");
     if (opath == 0) {
-        fprintf(stderr, "Cannot determine initial PATH environment\n\n");
+        fprintf(stderr, "Missing PATH environment variable\n\n");
         return usage(1);
     }
     else {
@@ -829,8 +835,8 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         cwd = posix2win(cwd);
         if (_wchdir(cwd) != 0) {
             i = errno;
-            _wperror(L"Fatal error _wchdir()");
-            fwprintf(stderr, L"Invalid dir: %s\n\n", cwd);
+            fwprintf(stderr, L"Invalid working directory: %s\nFatal error: %s\n\n",
+                     cwd, _wcserror(i));
             return usage(i);
         }
     }
