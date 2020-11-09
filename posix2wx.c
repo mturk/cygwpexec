@@ -29,7 +29,10 @@
 
 #define IS_PSW(c) ((c) == L'/' || (c) == L'\\')
 
+#if defined(HAVE_DEBUG)
 static int      debug      = 0;
+#endif
+
 static wchar_t *posixwroot = 0;
 
 static const wchar_t *pathmatches[] = {
@@ -100,8 +103,10 @@ static int usage(int rv)
     FILE *os = rv == 0 ? stdout : stderr;
     fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", PROJECT_NAME);
     fprintf(os, "Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n");
+#if defined(HAVE_DEBUG)
     fprintf(os, " -d, -[-]debug       print replaced arguments and environment\n");
     fprintf(os, "                     instead executing PROGRAM.\n");
+#endif
     fprintf(os, " -v, -[-]version     print version information and exit.\n");
     fprintf(os, " -h, -[-]help        print this screen and exit.\n");
     fprintf(os, " -w  -[-]workdir DIR change working directory to DIR before calling PROGRAM\n");
@@ -113,9 +118,8 @@ static int usage(int rv)
 
 static int version(int license)
 {
-    fprintf(stdout, "%s versiom %s compiled on %s\n",
-            PROJECT_NAME, PROJECT_VERSION_STR,
-            __DATE__ " " __TIME__);
+    fputs(PROJECT_NAME " version " PROJECT_VERSION_STR " (" __DATE__ " " __TIME__ ")",
+          stdout);
     if (license)
         fputs(PROJECT_LICENSE, stdout);
     return 0;
@@ -613,13 +617,15 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     wchar_t *e;
     wchar_t *o;
 
+#if defined(HAVE_DEBUG)
     if (debug)
         wprintf(L"Arguments (%d):\n", argc);
-
+#endif
     for (i = 0; i < argc; i++) {
-        if (debug) {
+#if defined(HAVE_DEBUG)
+        if (debug)
             wprintf(L"[%2d] : %s\n", i, wargv[i]);
-        }
+#endif
         if (wcslen(wargv[i]) > 3) {
             o = wargv[i];
             if ((e = cmdoptionval(o)) == 0) {
@@ -631,50 +637,62 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             if ((p = convert2win(e)) != 0) {
                 if (e != o) {
                     *e = L'\0';
+#if defined(HAVE_DEBUG)
                     if (debug)
                         wprintf(L"     + %s%s\n", o, p);
+#endif
                     wargv[i] = xwcsconcat(o, p);
                     xfree(p);
                 }
                 else {
+#if defined(HAVE_DEBUG)
                     if (debug)
                         wprintf(L"     * %s\n", p);
+#endif
                     wargv[i] = p;
                 }
                 xfree(o);
             }
         }
     }
+#if defined(HAVE_DEBUG)
     if (debug)
         wprintf(L"\nEnvironment variables (%d):\n", envc);
+#endif
     for (i = 0; i < (envc - 2); i++) {
 
+#if defined(HAVE_DEBUG)
         if (debug)
             wprintf(L"[%2d] : %s\n", i, wenvp[i]);
+#endif
         o = wenvp[i];
         if ((e = wcschr(o, L'=')) != 0) {
             ++e;
             if ((wcslen(e) > 3) && ((p = convert2win(e)) != 0)) {
                 *e = L'\0';
+#if defined(HAVE_DEBUG)
                 if (debug)
                     wprintf(L"     * %s%s\n", o, p);
+#endif
                 wenvp[i] = xwcsconcat(o, p);
                 xfree(o);
                 xfree(p);
             }
         }
     }
+#if defined(HAVE_DEBUG)
     if (debug) {
         wprintf(L"[%2d] : %s\n", i, wenvp[i]);
         i++;
         wprintf(L"[%2d] : %s\n", i, wenvp[i]);
-    }        
-    qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
+    }
     if (debug) {
          _putws(L"");
         return 0;
     }
-#ifdef DOTEST
+#endif
+    qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
+#if defined(DOTEST)
     if (wcscmp(wargv[0], L"argv") == 0) {
         for (i = 1; i < argc; i++) {
             if (i > 1)
@@ -750,8 +768,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                     return version(0);
                 else if (_wcsicmp(p, L"version") == 0)
                     return version(1);
+#if defined(HAVE_DEBUG)
                 else if (_wcsicmp(p, L"d") == 0 || _wcsicmp(p, L"debug") == 0)
                     debug = 1;
+#endif
                 else if (_wcsicmp(p, L"h") == 0 || _wcsicmp(p, L"help") == 0)
                     return usage(0);
                 else if (_wcsicmp(p, L"w") == 0 || _wcsicmp(p, L"workdir") == 0)
@@ -792,7 +812,8 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
     }
-#ifdef DOTEST
+#if defined(HAVE_DEBUG)
+#if defined(DOTEST)
     debug = 0;
 #endif
     if (debug) {
@@ -801,6 +822,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                 __DATE__ " " __TIME__);
         wprintf(L"POSIX_ROOT : %s\n\n", posixwroot);
     }
+#endif
     if (cwd != 0) {
         /* Use the new cwd */
         rmtrailingsep(cwd);

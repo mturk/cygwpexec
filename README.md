@@ -38,8 +38,6 @@ Usage posix2wx [OPTIONS]... PROGRAM [ARGUMENTS]...
 Execute PROGRAM [ARGUMENTS]...
 Options are:
 
--d, -[-]debug       print replaced arguments and environment
-                    instead executing PROGRAM
 -v, -[-]version     print version information and exit.
 -h, -[-]help        print this screen and exit.
 -w, -[-]workdir DIR change working directory to DIR before calling PROGRAM
@@ -48,7 +46,7 @@ Options are:
 
 Command options are case insensitive and can have only one dash
 for short options. Long options can have one or two dashes.
-This means that `-D -d -debug and --DeBug` are all valid options.
+This means that `-R -r -root and --Root` are all valid options.
 
 ## Posix root
 
