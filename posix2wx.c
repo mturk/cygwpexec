@@ -74,6 +74,9 @@ static const wchar_t *posixpenv[] = {
     L"MINTTY_SHORTCUT=",
     L"EXECIGNORE=",
     L"SHELL=",
+    L"TERM=",
+    L"TERM_PROGRAM=",
+    L"TERM_PROGRAM_VERSION=",
     L"PS1=",
     L"_=",
     L"!::=",
@@ -170,7 +173,7 @@ static wchar_t *xwcsndup(const wchar_t *s, size_t size)
 
     if (s == 0)
         return 0;
-    
+
     n = wcslen(s);
     if (n < size)
         size = n;
@@ -288,19 +291,20 @@ static int iswinpath(const wchar_t *s)
 
 static int isrelpath(const wchar_t *s)
 {
+    int dots = 0;
 
     if (IS_PSW(s[0]))
         return 0;
 
     if (s[0] < 128 && isalpha(s[0]) && s[1] == L':')
         return 0;
-
-    /**
-     * If the path doesn't start
-     * with something like \\?\ or C:\
-     * it is probably a relative path
-     */
-    return 1;
+    while (*(s++) == L'.') {
+        if (dots++ > 2)
+            return 0;
+        if (IS_PSW(*s) || *s == L'\0')
+            return 1;
+    }
+    return 0;
 }
 
 /* Is this a known posix path */
@@ -308,22 +312,28 @@ static int isposixpath(const wchar_t *str)
 {
     int i = 0;
     const wchar_t **mp;
+    const wchar_t  *ns;
 
-    if (*str != L'/') {
+    if (str[0] != L'/') {
         if (isrelpath(str))
             return 300;
         else
             return 0;
     }
-    if (wcscmp(str, L"/dev/null") == 0) {
-        return 200;
+    if (str[1] == L'\0') {
+        /* Posix root */
+        return 301;
     }
-    if (wcschr(str + 1, L'/') == 0) {
+    if (wcscmp(str, L"/dev/null") == 0) {
+        return 302;
+    }
+    ns = wcschr(str + 1, L'/');
+    if (ns == 0) {
         /* No additional slashes */
         mp = pathfixed;
         while (mp[i] != 0) {
             if (wcscmp(str, mp[i]) == 0)
-                return i + 201;
+                return i + 200;
             i++;
         }
     }
@@ -353,8 +363,6 @@ static wchar_t *cmdoptionval(wchar_t *str)
         s++;
         if (towlower(*s) == L'i') {
             s++;
-            if (*s == L'\'' || *s == L'"')
-                s++;
             if (isposixpath(s) || iswinpath(s))
                 return s;
         }
@@ -366,10 +374,15 @@ static wchar_t *cmdoptionval(wchar_t *str)
     s = str + 1;
     while (*s != L'\0') {
         s++;
-        if ((*s == L'=') || ((*str == L'/') && (*s == L':'))) {
-            /* Return poonter after '=' or ':' */
-            return s + 1;
+        if (*str == L'/') {
+            if (*s == L'/')
+                return 0;
+            else if (*s == L':')
+                return s + 1;
+
         }
+        else if (*s == L'=')
+            return s + 1;
     }
     return 0;
 }
@@ -403,25 +416,17 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
             c++;
     }
     sa = waalloc(c + 2);
-    if (c > 0 ) {
+    if (c > 0) {
         c  = 0;
-        while ((e = wcschr(b, L':'))) {
+        while ((e = wcschr(b, L':')) != 0) {
             int cn = 1;
             if (iswinpath(b)) {
                 /*
                  * We have <ALPHA>:[/\]
-                 * Find next colon
                  */
-                if ((e = wcschr(b + 2, L':')) != 0) {
-                    /* Windows path */
-                    sa[c++] = xwcsndup(b, e - b);
-                }
-                else {
-                    /* No more paths */
-                    sa[c++] = xwcsdup(s);
-                    *tokens = c;
-                    return sa;
-                }
+                sa[c++] = xwcsdup(b);
+                *tokens = c;
+                return sa;
             }
             else {
                 wchar_t *p;
@@ -435,8 +440,13 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
                     }
                 }
                 else {
-                    wcscat(p, L":");
-                    /* Copy ':' as well */
+                    /* Special case for /foo:next
+                     * result is /foo:
+                     * For /foo/bar:path
+                     * result is /foo/bar
+                     */
+                    if (*p == L'/' && (wcschr(p + 1, L'/') == 0))
+                        wcscat(p, L":");
                 }
                 sa[c++] = p;
                 s = e + cn;
@@ -513,13 +523,16 @@ static wchar_t *posix2win(wchar_t *pp)
         fs2bs(pp + 3);
         rv = xwcsconcat(windrive, pp + 3);
     }
-    else if (m == 200) {
-        /* replace /dev/null with NUL */
-        rv = xwcsdup(L"NUL");
-    }
     else if (m == 300) {
         fs2bs(pp);
         return pp;
+    }
+    else if (m == 301) {
+        rv = xwcsdup(posixwroot);
+    }
+    else if (m == 302) {
+        /* replace /dev/null with NUL */
+        rv = xwcsdup(L"NUL");
     }
     else {
         fs2bs(pp);
@@ -535,7 +548,7 @@ static wchar_t *convert2win(const wchar_t *str)
     wchar_t **pa;
     int i, tokens;
 
-    if (wcschr(str, L'/') == 0) {
+    if (*str == L'\'' || wcschr(str, L'/') == 0) {
         /* Nothing to do */
         return 0;
     }
@@ -558,8 +571,8 @@ static void rmtrailingsep(wchar_t *s)
 {
     int i = (int)xwcslen(s);
 
-    while (--i > 0) {
-        if (IS_PSW(s[i]) || s[i] == L';')
+    while (--i > 1) {
+        if (IS_PSW(s[i]) || s[1] == L';')
             s[i] = L'\0';
         else
             break;
@@ -592,16 +605,6 @@ static wchar_t *getposixwroot(wchar_t *argroot)
     return r;
 }
 
-static void __cdecl stdinrw(void *p)
-{
-    unsigned char buf[512];
-    int *fds = (int *)p;
-    int nr;
-    while ((nr = _read(fds[0], buf, 512)) > 0) {
-        _write(fds[1], buf, nr);
-    }
-}
-
 static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
     int i, rc = 0;
@@ -625,21 +628,17 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
                  */
                  e = o;
             }
-            if (*e == L'\'' || *e == L'"')
-                e++;
             if ((p = convert2win(e)) != 0) {
                 if (e != o) {
                     *e = L'\0';
-                    if (debug) {
+                    if (debug)
                         wprintf(L"     + %s%s\n", o, p);
-                    }
                     wargv[i] = xwcsconcat(o, p);
                     xfree(p);
                 }
                 else {
-                    if (debug) {
+                    if (debug)
                         wprintf(L"     * %s\n", p);
-                    }
                     wargv[i] = p;
                 }
                 xfree(o);
@@ -650,23 +649,26 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         wprintf(L"\nEnvironment variables (%d):\n", envc);
     for (i = 0; i < (envc - 2); i++) {
 
-        if (debug) {
+        if (debug)
             wprintf(L"[%2d] : %s\n", i, wenvp[i]);
-        }
         o = wenvp[i];
         if ((e = wcschr(o, L'=')) != 0) {
             ++e;
             if ((wcslen(e) > 3) && ((p = convert2win(e)) != 0)) {
                 *e = L'\0';
-                if (debug) {
+                if (debug)
                     wprintf(L"     * %s%s\n", o, p);
-                }
                 wenvp[i] = xwcsconcat(o, p);
                 xfree(o);
                 xfree(p);
             }
         }
     }
+    if (debug) {
+        wprintf(L"[%2d] : %s\n", i, wenvp[i]);
+        i++;
+        wprintf(L"[%2d] : %s\n", i, wenvp[i]);
+    }        
     qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
     if (debug) {
          _putws(L"");
@@ -790,10 +792,18 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
     }
-    if (debug)
-        wprintf(L"POSIX_ROOT : %s\n", posixwroot);
+#ifdef DOTEST
+    debug = 0;
+#endif
+    if (debug) {
+        printf("%s versiom %s (%s)\n",
+                PROJECT_NAME, PROJECT_VERSION_STR,
+                __DATE__ " " __TIME__);
+        wprintf(L"POSIX_ROOT : %s\n\n", posixwroot);
+    }
     if (cwd != 0) {
         /* Use the new cwd */
+        rmtrailingsep(cwd);
         cwd = posix2win(cwd);
         if (_wchdir(cwd) != 0) {
             i = errno;
