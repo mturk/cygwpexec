@@ -370,7 +370,7 @@ static wchar_t *cmdoptionval(wchar_t *str)
 {
     wchar_t *s = str;
 
-    if (iswinpath(s || isposixpath(s))
+    if (iswinpath(s) || isposixpath(s))
         return str;
     while (*(s++) != L'\0') {
         if (IS_PSW(*s) || *s == L' ')
