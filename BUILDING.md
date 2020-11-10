@@ -92,18 +92,18 @@ binaries at a specific location for later use.
 
 ### Debug compile option
 
-Posix2wx can be compiled to have additional --debug
+Posix2wx can be compiled to have additional debug
 command line option which when specified displays various
 internal options at runtime.
 
 When specified this option prints replaced arguments
 and environment instead executing PROGRAM.
 
-To compile posix2wix with  this option enabled
+To compile posix2wix with this option enabled
 use the following:
 
 ```no-highlight
-> nmake install EXTRA_CFLAGS=-D_HAVE_DEBUG_MODE
+> nmake install EXTRA_CFLAGS=-D_HAVE_DEBUG_OPTION
 ```
 
 ### Test compile option
@@ -115,20 +115,31 @@ For test suite purposed use the following flags:
 ```
 
 This compiles posix2wx in such a way that instead
-PROGRAM you can specify either `args` or `envp`.
+PROGRAM you need to specify either `args` or `envp`.
 
 On execution posix2wx will display either arguments
-or environment variables and exit.
+or environment variables and exit. This option is used
+for test purposes to verify the produced path translation.
 
 For example open cygwin shell and type the following:
 
 ```no-highlight
-$ ./posix2wx.exe -r C:/posixroot argv /bin/:/foo:/:/tmp /I/usr/include
+$ ./posix2wx.exe -r C:/posixroot argv /bin/:/foo:/:/tmp /c/usr/include
 C:\posixroot\bin\;/foo:C:\posixroot;C:\posixroot\tmp
-/IC:\posixroot\usr\include
+C:\usr\include
 
 ```
 
-This option is used for test purposes to verify the
-produced path translation.
+The argument for envp can be used to filter environment
+variables by checking if the environment variable starts
+with argument.
+
+```no-highlight
+$ export FOO_BAR=/usr/local
+
+$ ./posix2wx.exe -r c:/posixroot envp Foo_Bar
+FOO_BAR=C:\posixroot\usr\local
+
+```
+
 

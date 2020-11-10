@@ -30,9 +30,9 @@
 #define IS_PSW(c) ((c) == L'/' || (c) == L'\\')
 
 #if defined(_TEST_MODE)
-#undef _HAVE_DEBUG_MODE
+#undef _HAVE_DEBUG_OPTION
 #endif
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
 static int      debug     = 0;
 #endif
 
@@ -106,7 +106,7 @@ static int usage(int rv)
     FILE *os = rv == 0 ? stdout : stderr;
     fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", PROJECT_NAME);
     fprintf(os, "Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n");
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
     fprintf(os, " -d        print replaced arguments and environment\n");
     fprintf(os, "           instead executing PROGRAM.\n");
 #endif
@@ -611,12 +611,12 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     wchar_t *e;
     wchar_t *o;
 
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
     if (debug)
         wprintf(L"Arguments (%d):\n", argc);
 #endif
     for (i = 0; i < argc; i++) {
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
         if (debug)
             wprintf(L"[%2d] : %s\n", i, wargv[i]);
 #endif
@@ -626,7 +626,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             if ((p = convert2win(e)) != 0) {
                 if (e != o) {
                     *e = L'\0';
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
                     if (debug)
                         wprintf(L"     + %s%s\n", o, p);
 #endif
@@ -634,7 +634,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
                     xfree(p);
                 }
                 else {
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
                     if (debug)
                         wprintf(L"     * %s\n", p);
 #endif
@@ -644,13 +644,13 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             }
         }
     }
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
     if (debug)
         wprintf(L"\nEnvironment variables (%d):\n", envc);
 #endif
     for (i = 0; i < (envc - 2); i++) {
 
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
         if (debug)
             wprintf(L"[%2d] : %s\n", i, wenvp[i]);
 #endif
@@ -659,7 +659,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             ++e;
             if ((wcslen(e) > 3) && ((p = convert2win(e)) != 0)) {
                 *e = L'\0';
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
                 if (debug)
                     wprintf(L"     * %s%s\n", o, p);
 #endif
@@ -669,7 +669,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             }
         }
     }
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
     if (debug) {
         wprintf(L"[%2d] : %s\n", i, wenvp[i]);
         i++;
@@ -757,7 +757,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                     case L'W':
                         cwd = nnp;
                     break;
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
                     case L'd':
                     case L'D':
                         debug = 1;
@@ -793,7 +793,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
     }
-#if defined(_HAVE_DEBUG_MODE)
+#if defined(_HAVE_DEBUG_OPTION)
     if (debug) {
         printf("%s versiom %s (%s)\n",
                 PROJECT_NAME, PROJECT_VERSION_STR,
