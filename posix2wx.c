@@ -33,10 +33,10 @@
 #undef _HAVE_DEBUG_MODE
 #endif
 #if defined(_HAVE_DEBUG_MODE)
-static int      debug      = 0;
+static int      debug     = 0;
 #endif
 
-static wchar_t *posixwroot = 0;
+static wchar_t *posixroot = 0;
 
 static const wchar_t *pathmatches[] = {
     L"/cygdrive/?/*",
@@ -245,7 +245,7 @@ static wchar_t *xwcsconcat(const wchar_t *s1, const wchar_t *s2)
 /* Match = 0, NoMatch = 1, Abort = -1
  * Based loosely on sections of wildmat.c by Rich Salz
  */
-static int wchrimatch(const wchar_t *wstr, const wchar_t *wexp)
+static int xwcsmatch(const wchar_t *wstr, const wchar_t *wexp)
 {
     for ( ; *wexp != L'\0'; wstr++, wexp++) {
         if (*wstr == L'\0' && *wexp != L'*')
@@ -261,7 +261,7 @@ static int wchrimatch(const wchar_t *wstr, const wchar_t *wexp)
                     return 0;
                 while (*wstr != L'\0') {
                     int rv;
-                    if ((rv = wchrimatch(wstr++, wexp)) != 1)
+                    if ((rv = xwcsmatch(wstr++, wexp)) != 1)
                         return rv;
                 }
                 return -1;
@@ -294,7 +294,8 @@ static int strstartswith(const wchar_t *str, const wchar_t *src)
 
 static int iswinpath(const wchar_t *s)
 {
-
+    if (s[0] == L'\\')
+        return 1;
     if (s[0] < 128 && isalpha(s[0]) && s[1] == L':') {
         if (IS_PSW(s[2]) || s[2] == L'\0')
             return 1;
@@ -311,9 +312,7 @@ static int isrelpath(const wchar_t *s)
 
     if (s[0] < 128 && isalpha(s[0]) && s[1] == L':')
         return 0;
-    while (*(s++) == L'.') {
-        if (dots++ > 2)
-            return 0;
+    while ((*(s++) == L'.') && (++dots < 3)) {
         if (IS_PSW(*s) || *s == L'\0')
             return 1;
     }
@@ -353,7 +352,7 @@ static int isposixpath(const wchar_t *str)
     else {
         mp = pathmatches;
         while (mp[i] != 0) {
-            if (wchrimatch(str, mp[i]) == 0)
+            if (xwcsmatch(str, mp[i]) == 0)
                 return i + 100;
             i++;
         }
@@ -362,42 +361,24 @@ static int isposixpath(const wchar_t *str)
 }
 
 /**
- * Check if the argument is a cmdline option
+ * Check if the cmdline option have embeded posix
+ * paths. Eg. name[:val] or name[=val] will try to
+ * convert val part to Windows paths unless the
+ * name part itself is not path itself
  */
 static wchar_t *cmdoptionval(wchar_t *str)
 {
     wchar_t *s = str;
 
-    /*
-     * First check for [-/]I['"]/
-     * or [-/]LIBPATH:
-     */
-    if (*s == L'-' || *s == L'/') {
-        s++;
-        if (towlower(*s) == L'i') {
-            s++;
-            if (isposixpath(s) || iswinpath(s))
-                return s;
-        }
-    }
-    if (isposixpath(str)) {
-        /* The option starts with known path */
-        return 0;
-    }
-    s = str + 1;
-    while (*s != L'\0') {
-        s++;
-        if (*str == L'/') {
-            if (*s == L'/')
-                return 0;
-            else if (*s == L':')
-                return s + 1;
-
-        }
-        else if (*s == L'=')
+    if (iswinpath(s || isposixpath(s))
+        return str;
+    while (*(s++) != L'\0') {
+        if (IS_PSW(*s) || *s == L' ')
+            return str;
+        if (*s == L'=' || *s == L':')
             return s + 1;
     }
-    return 0;
+    return str;
 }
 
 static int envsort(const void *arg1, const void *arg2)
@@ -541,7 +522,7 @@ static wchar_t *posix2win(wchar_t *pp)
         return pp;
     }
     else if (m == 301) {
-        rv = xwcsdup(posixwroot);
+        rv = xwcsdup(posixroot);
     }
     else if (m == 302) {
         /* replace /dev/null with NUL */
@@ -549,7 +530,7 @@ static wchar_t *posix2win(wchar_t *pp)
     }
     else {
         fs2bs(pp);
-        rv = xwcsconcat(posixwroot, pp);
+        rv = xwcsconcat(posixroot, pp);
     }
     xfree(pp);
     return rv;
@@ -592,7 +573,7 @@ static void rmtrailingsep(wchar_t *s)
     }
 }
 
-static wchar_t *getposixwroot(wchar_t *argroot)
+static wchar_t *getposixroot(wchar_t *argroot)
 {
     wchar_t *r = argroot;
 
@@ -635,14 +616,9 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         if (debug)
             wprintf(L"[%2d] : %s\n", i, wargv[i]);
 #endif
-        if (wcslen(wargv[i]) > 3) {
+        if ((wcschr(wargv[i], L'\\') == 0) && (wcslen(wargv[i]) > 3)) {
             o = wargv[i];
-            if ((e = cmdoptionval(o)) == 0) {
-                /*
-                 * We dont have known option=....
-                 */
-                 e = o;
-            }
+            e = cmdoptionval(o);
             if ((p = convert2win(e)) != 0) {
                 if (e != o) {
                     *e = L'\0';
@@ -675,7 +651,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             wprintf(L"[%2d] : %s\n", i, wenvp[i]);
 #endif
         o = wenvp[i];
-        if ((e = wcschr(o, L'=')) != 0) {
+        if ((wcschr(o, L'\\') == 0) && ((e = wcschr(o, L'=')) != 0)) {
             ++e;
             if ((wcslen(e) > 3) && ((p = convert2win(e)) != 0)) {
                 *e = L'\0';
@@ -694,9 +670,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         wprintf(L"[%2d] : %s\n", i, wenvp[i]);
         i++;
         wprintf(L"[%2d] : %s\n", i, wenvp[i]);
-    }
-    if (debug) {
-         _putws(L"");
+        _putws(L"");
         return 0;
     }
 #endif
@@ -719,8 +693,8 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         return 0;
     }
     fprintf(stderr, "unknown test %S .. use argv or envp\n", wargv[0]);
-    return 1;
-#endif
+    rp = 1;
+#else
     _flushall();
     rp = _wspawnvpe(_P_WAIT, wargv[0], wargv, wenvp);
     if (rp == (intptr_t)-1) {
@@ -729,6 +703,7 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
                  wargv[0], _wcserror(i));
         return usage(i);
     }
+#endif
     return (int)rp;
 }
 
@@ -809,23 +784,12 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         fprintf(stderr, "Missing required parameter value\n\n");
         return usage(1);
     }
-    opath = xgetenv(L"PATH");
-    if (opath == 0) {
+    if ((opath = xgetenv(L"PATH")) == 0) {
         fprintf(stderr, "Missing PATH environment variable\n\n");
         return usage(1);
     }
-    else {
-        wchar_t *p = convert2win(opath);
-        if (p != 0) {
-            xfree(opath);
-            opath = p;
-        }
-    }
     rmtrailingsep(opath);
-    _wputenv_s(L"PATH", opath);
-
-    posixwroot = getposixwroot(crp);
-    if (posixwroot == 0) {
+    if ((posixroot = getposixroot(crp)) == 0) {
         /* Should not happen */
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
@@ -835,7 +799,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         printf("%s versiom %s (%s)\n",
                 PROJECT_NAME, PROJECT_VERSION_STR,
                 __DATE__ " " __TIME__);
-        wprintf(L"POSIX_ROOT : %s\n\n", posixwroot);
+        wprintf(L"POSIX_ROOT : %s\n\n", posixroot);
     }
 #endif
     if (cwd != 0) {
@@ -877,7 +841,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
      * Add aditional environment variables
      */
     dupwenvp[envc++] = xwcsconcat(L"PATH=", opath);
-    dupwenvp[envc++] = xwcsconcat(L"POSIX_ROOT=", posixwroot);
+    dupwenvp[envc++] = xwcsconcat(L"POSIX_ROOT=", posixroot);
 
     xfree(opath);
     /*
