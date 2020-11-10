@@ -508,16 +508,16 @@ static wchar_t *posix2win(wchar_t *pp)
     else if (m == 100) {
         /* /cygdrive/x/... absolute path */
         windrive[0] = towupper(pp[10]);
-        fs2bs(pp + 12);
         rv = xwcsconcat(windrive, pp + 12);
+        fs2bs(rv + 3);
     }
     else if (m == 101) {
         /* /x/... msys absolute path */
         windrive[0] = towupper(pp[1]);
-        if (windrive[0] != towupper(*posixroot))
+        if (windrive[0] != *posixroot)
             return pp;
-        fs2bs(pp + 3);
         rv = xwcsconcat(windrive, pp + 3);
+        fs2bs(rv + 3);
     }
     else if (m == 300) {
         fs2bs(pp);
@@ -597,6 +597,8 @@ static wchar_t *getposixroot(wchar_t *argroot)
          */
         rmtrailingsep(r);
         fs2bs(r);
+        if (isalpha(*r & 0x7F))
+            *r = towupper(*r);
     }
     return r;
 }
@@ -672,25 +674,20 @@ static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         wprintf(L"[%2d] : %s\n", i, wenvp[i]);
         i++;
         wprintf(L"[%2d] : %s\n", i, wenvp[i]);
-        _putws(L"");
         return 0;
     }
 #endif
     qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
 #if defined(_TEST_MODE)
     if (wcscmp(wargv[0], L"argv") == 0) {
-        for (i = 1; i < argc; i++) {
-            if (i > 1)
-                _putws(L"");
-             wprintf(L"%s", wargv[i]);
-        }
+        for (i = 1; i < argc; i++)
+            _putws(wargv[i]);
         return 0;
     }
     if (wcscmp(wargv[0], L"envp") == 0) {
         for (i = 0; i < envc; i++) {
-            if (i > 0)
-                _putws(L"");
-            wprintf(L"%s", wenvp[i]);
+            if (wargv[1] == 0 || strstartswith(wenvp[i], wargv[1]))
+                _putws(wenvp[i]);
         }
         return 0;
     }
