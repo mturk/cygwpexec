@@ -242,7 +242,8 @@ static wchar_t *xwcsconcat(const wchar_t *s1, const wchar_t *s2)
     return res;
 }
 
-/* Match = 0, NoMatch = 1, Abort = -1
+/**
+ * Match = 0, NoMatch = 1, Abort = -1
  * Based loosely on sections of wildmat.c by Rich Salz
  */
 static int xwcsmatch(const wchar_t *wstr, const wchar_t *wexp)
@@ -319,7 +320,6 @@ static int isrelpath(const wchar_t *s)
     return 0;
 }
 
-/* Is this a known posix path */
 static int isposixpath(const wchar_t *str)
 {
     int i = 0;
@@ -383,7 +383,6 @@ static wchar_t *cmdoptionval(wchar_t *str)
 
 static int envsort(const void *arg1, const void *arg2)
 {
-    /* Compare all of both strings: */
     return _wcsicoll(*((wchar_t **)arg1), *((wchar_t **)arg2));
 }
 
@@ -415,7 +414,7 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
         while ((e = wcschr(b, L':')) != 0) {
             int cn = 1;
             if (iswinpath(b)) {
-                /*
+                /**
                  * We have <ALPHA>:[/\]
                  */
                 sa[c++] = xwcsdup(b);
@@ -428,13 +427,13 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
                 p = xwcsndup(b, (size_t)(e - b));
                 if (isposixpath(p)) {
                     while (*(e + cn) == L':') {
-                        /* Drop multiple colons
-                         */
+                        /* Drop multiple colons */
                         cn++;
                     }
                 }
                 else {
-                    /* Special case for /foo:next
+                    /**
+                     * Special case for /foo:next
                      * result is /foo:
                      * For /foo/bar:path
                      * result is /foo/bar
@@ -491,11 +490,9 @@ static wchar_t *posix2win(wchar_t *pp)
     wchar_t *rv;
     wchar_t  windrive[] = { 0, L':', L'\\', 0};
 
-    if (wcschr(pp, L'/') == 0) {
-        /* Nothing to do */
+    if (wcschr(pp, L'/') == 0)
         return pp;
-    }
-    /*
+    /**
      * Check for special paths
      */
     m = isposixpath(pp);
@@ -527,7 +524,6 @@ static wchar_t *posix2win(wchar_t *pp)
         rv = xwcsdup(posixroot);
     }
     else if (m == 302) {
-        /* replace /dev/null with NUL */
         rv = xwcsdup(L"NUL");
     }
     else {
@@ -544,10 +540,8 @@ static wchar_t *convert2win(const wchar_t *str)
     wchar_t **pa;
     int i, tokens;
 
-    if (*str == L'\'' || wcschr(str, L'/') == 0) {
-        /* Nothing to do */
+    if (*str == L'\'' || wcschr(str, L'/') == 0)
         return 0;
-    }
     pa = splitpath(str, &tokens);
     for (i = 0; i < tokens; i++) {
         wchar_t *pp = pa[i];
@@ -582,19 +576,12 @@ static wchar_t *getposixroot(wchar_t *argroot)
     if (r == 0) {
         const wchar_t **e = posixrenv;
         while (*e != 0) {
-            if ((r = xgetenv(*e)) != 0) {
-                /*
-                 * Found root variable
-                 */
-                break;
-            }
+            if ((r = xgetenv(*e)) != 0)
+                break;            
             e++;
         }
     }
     if (r != 0) {
-        /*
-         * Remove trailing slash (if present)
-         */
         rmtrailingsep(r);
         fs2bs(r);
         if (isalpha(*r & 0x7F))
@@ -726,7 +713,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     for (i = 1; i < argc; i++) {
         if (opts) {
             const wchar_t *p = wargv[i];
-            /*
+            /**
              * Simple argument parsing
              *
              */
@@ -774,7 +761,6 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                 }
                 continue;
             }
-            /* No more options */
             opts = 0;
         }
         dupwargv[narg++] = xwcsdup(wargv[i]);
@@ -789,7 +775,6 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
     rmtrailingsep(opath);
     if ((posixroot = getposixroot(crp)) == 0) {
-        /* Should not happen */
         fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
         return usage(1);
     }
@@ -802,7 +787,6 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
 #endif
     if (cwd != 0) {
-        /* Use the new cwd */
         rmtrailingsep(cwd);
         cwd = posix2win(cwd);
         if (_wchdir(cwd) != 0) {
@@ -824,7 +808,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
 
         while (*e != 0) {
             if (strstartswith(p, *e)) {
-                /*
+                /**
                  * Skip private environment variable
                  */
                 p = 0;
@@ -836,14 +820,14 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             dupwenvp[envc++] = xwcsdup(p);
     }
 
-    /*
+    /**
      * Add aditional environment variables
      */
     dupwenvp[envc++] = xwcsconcat(L"PATH=", opath);
     dupwenvp[envc++] = xwcsconcat(L"POSIX_ROOT=", posixroot);
 
     xfree(opath);
-    /*
+    /**
      * Call main worker function
      */
     return ppspawn(narg, dupwargv, envc, dupwenvp);
