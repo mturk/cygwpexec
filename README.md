@@ -55,7 +55,7 @@ Use `-r <directory>` command line option to setup the install location
 of the current posix subsystem.
 
 In case the `-r <directory>` was not specified the program will
-check the following environment varibles.
+check the following environment variables.
 First check `POSIX_ROOT` then `CYGWIN_ROOT` and finally `HOMEDIR`.
 
 Make sure that you provide a correct posix root since it will
