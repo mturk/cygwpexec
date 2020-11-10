@@ -514,6 +514,8 @@ static wchar_t *posix2win(wchar_t *pp)
     else if (m == 101) {
         /* /x/... msys absolute path */
         windrive[0] = towupper(pp[1]);
+        if (windrive[0] != towupper(*posixroot))
+            return pp;
         fs2bs(pp + 3);
         rv = xwcsconcat(windrive, pp + 3);
     }
