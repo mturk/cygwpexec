@@ -361,24 +361,23 @@ static int isposixpath(const wchar_t *str)
 }
 
 /**
- * Check if the cmdline option have embeded posix
- * paths. Eg. name[:val] or name[=val] will try to
- * convert val part to Windows paths unless the
- * name part itself is not path itself
+ * Check if the argument is command line option
+ * containing a posix path as value.
+ * Eg. name[:value] or name[=value] will try to
+ * convert value part to Windows paths unless the
+ * name part itself is a path
  */
-static wchar_t *cmdoptionval(wchar_t *str)
+static wchar_t *cmdoptionval(wchar_t *s)
 {
-    wchar_t *s = str;
-
     if (iswinpath(s) || isposixpath(s))
-        return str;
+        return 0;
     while (*(s++) != L'\0') {
-        if (IS_PSW(*s) || *s == L' ')
-            return str;
+        if (IS_PSW(*s) || iswspace(*s))
+            return 0;
         if (*s == L'=' || *s == L':')
             return s + 1;
     }
-    return str;
+    return 0;
 }
 
 static int envsort(const void *arg1, const void *arg2)
@@ -576,7 +575,7 @@ static wchar_t *getposixroot(wchar_t *argroot)
         const wchar_t **e = posixrenv;
         while (*e != 0) {
             if ((r = xgetenv(*e)) != 0)
-                break;            
+                break;
             e++;
         }
     }
@@ -602,30 +601,29 @@ static int pxwmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         wprintf(L"Arguments (%d):\n", argc);
 #endif
     for (i = 0; i < argc; i++) {
+        o = wargv[i];
 #if defined(_HAVE_DEBUG_OPTION)
         if (debug)
-            wprintf(L"[%2d] : %s\n", i, wargv[i]);
+            wprintf(L"[%2d] : %s\n", i, o);
 #endif
-        if ((wcschr(wargv[i], L'\\') == 0) && (wcslen(wargv[i]) > 3)) {
-            o = wargv[i];
+        if ((wcschr(o, L'\\') == 0) && (wcslen(o) > 3)) {
             e = cmdoptionval(o);
-            if ((p = convert2win(e)) != 0) {
-                if (e != o) {
+            if (e == 0)
+                p = convert2win(o);
+            else
+                p = convert2win(e);
+            if (p != 0) {
+                if (e == 0)
+                    wargv[i] = p;
+                else {
                     *e = L'\0';
-#if defined(_HAVE_DEBUG_OPTION)
-                    if (debug)
-                        wprintf(L"     + %s%s\n", o, p);
-#endif
                     wargv[i] = xwcsconcat(o, p);
                     xfree(p);
                 }
-                else {
 #if defined(_HAVE_DEBUG_OPTION)
-                    if (debug)
-                        wprintf(L"     * %s\n", p);
+                if (debug)
+                    wprintf(L"     * %s\n", wargv[i]);
 #endif
-                    wargv[i] = p;
-                }
                 xfree(o);
             }
         }
@@ -635,12 +633,11 @@ static int pxwmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         wprintf(L"\nEnvironment variables (%d):\n", envc);
 #endif
     for (i = 0; i < (envc - 2); i++) {
-
+        o = wenvp[i];
 #if defined(_HAVE_DEBUG_OPTION)
         if (debug)
-            wprintf(L"[%2d] : %s\n", i, wenvp[i]);
+            wprintf(L"[%2d] : %s\n", i, o);
 #endif
-        o = wenvp[i];
         if ((wcschr(o, L'\\') == 0) && ((e = wcschr(o, L'=')) != 0)) {
             ++e;
             if ((wcslen(e) > 3) && ((p = convert2win(e)) != 0)) {
@@ -657,7 +654,7 @@ static int pxwmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     }
 #if defined(_HAVE_DEBUG_OPTION)
     if (debug) {
-        wprintf(L"[%2d] : %s\n", i, wenvp[i]);
+        wprintf(L"\n[%2d] : %s\n", i, wenvp[i]);
         i++;
         wprintf(L"[%2d] : %s\n", i, wenvp[i]);
         return 0;
