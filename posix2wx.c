@@ -592,39 +592,39 @@ static int pxwmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
     int i;
     intptr_t rp;
-    wchar_t *p;
-    wchar_t *e;
-    wchar_t *o;
 
 #if defined(_HAVE_DEBUG_OPTION)
     if (debug)
         wprintf(L"Arguments (%d):\n", argc);
 #endif
     for (i = 0; i < argc; i++) {
-        o = wargv[i];
+        wchar_t *a = wargv[i];
 #if defined(_HAVE_DEBUG_OPTION)
         if (debug)
-            wprintf(L"[%2d] : %s\n", i, o);
+            wprintf(L"[%2d] : %s\n", i, a);
 #endif
-        if ((wcschr(o, L'\\') == 0) && (wcslen(o) > 3)) {
-            e = cmdoptionval(o);
-            if (e == 0)
-                p = convert2win(o);
+        if (wcschr(a + 1, L'/') == 0)
+            continue;
+        if (wcslen(a) > 3) {
+            wchar_t *p;
+            wchar_t *v = cmdoptionval(a);
+            if (v == 0)
+                p = convert2win(a);
             else
-                p = convert2win(e);
+                p = convert2win(v);
             if (p != 0) {
-                if (e == 0)
+                if (v == 0)
                     wargv[i] = p;
                 else {
-                    *e = L'\0';
-                    wargv[i] = xwcsconcat(o, p);
+                    *v = L'\0';
+                    wargv[i] = xwcsconcat(a, p);
                     xfree(p);
                 }
+                xfree(a);
 #if defined(_HAVE_DEBUG_OPTION)
                 if (debug)
                     wprintf(L"     * %s\n", wargv[i]);
 #endif
-                xfree(o);
             }
         }
     }
@@ -633,22 +633,23 @@ static int pxwmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         wprintf(L"\nEnvironment variables (%d):\n", envc);
 #endif
     for (i = 0; i < (envc - 2); i++) {
-        o = wenvp[i];
+        wchar_t *p;
+        wchar_t *e = wenvp[i];
 #if defined(_HAVE_DEBUG_OPTION)
         if (debug)
-            wprintf(L"[%2d] : %s\n", i, o);
+            wprintf(L"[%2d] : %s\n", i, e);
 #endif
-        if ((wcschr(o, L'\\') == 0) && ((e = wcschr(o, L'=')) != 0)) {
-            ++e;
-            if ((wcslen(e) > 3) && ((p = convert2win(e)) != 0)) {
-                *e = L'\0';
+        if ((p = wcschr(e, L'=')) != 0) {
+            wchar_t *v = p + 1;
+            if ((wcslen(v) > 3) && ((p = convert2win(v)) != 0)) {
+                *v = L'\0';
+                wenvp[i] = xwcsconcat(e, p);
+                xfree(e);
+                xfree(p);
 #if defined(_HAVE_DEBUG_OPTION)
                 if (debug)
-                    wprintf(L"     * %s%s\n", o, p);
+                    wprintf(L"     * %s\n", wenvp[i]);
 #endif
-                wenvp[i] = xwcsconcat(o, p);
-                xfree(o);
-                xfree(p);
             }
         }
     }
