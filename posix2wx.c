@@ -388,11 +388,10 @@ static int envsort(const void *arg1, const void *arg2)
 
 static void fs2bs(wchar_t *s)
 {
-    wchar_t *p = s;
-    while (*p != 0) {
-        if (*p == L'/')
-            *p = L'\\';
-        p++;
+    while (*s != L'\0') {
+        if (*s == L'/')
+            *s = L'\\';
+        s++;
     }
 }
 
@@ -590,7 +589,7 @@ static wchar_t *getposixroot(wchar_t *argroot)
     return r;
 }
 
-static int ppspawn(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
+static int pxwmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
     int i;
     intptr_t rp;
@@ -825,10 +824,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
      */
     dupwenvp[envc++] = xwcsconcat(L"PATH=", opath);
     dupwenvp[envc++] = xwcsconcat(L"POSIX_ROOT=", posixroot);
-
     xfree(opath);
-    /**
-     * Call main worker function
-     */
-    return ppspawn(narg, dupwargv, envc, dupwenvp);
+
+    return pxwmain(narg, dupwargv, envc, dupwenvp);
 }
