@@ -115,7 +115,7 @@ For test suite purposed use the following flags:
 ```
 
 This compiles posix2wx in such a way that instead
-PROGRAM you need to specify either `args` or `envp`.
+PROGRAM you need to specify either `arg` or `env`.
 
 On execution posix2wx will display either arguments
 or environment variables and exit. This option is used
@@ -124,20 +124,20 @@ for test purposes to verify the produced path translation.
 For example open cygwin shell and type the following:
 
 ```no-highlight
-$ ./posix2wx.exe -r C:/posixroot argv /bin/:/foo:/:/tmp /c/usr/include
+$ ./posix2wx.exe -r C:/posixroot arg /bin/:/foo:/:/tmp /c/usr/include
 C:\posixroot\bin\;/foo:C:\posixroot;C:\posixroot\tmp
 C:\usr\include
 
 ```
 
-The argument for envp can be used to filter environment
+The argument for `env` can be used to filter environment
 variables by checking if the environment variable starts
 with argument.
 
 ```no-highlight
 $ export FOO_BAR=/usr/local
 
-$ ./posix2wx.exe -r c:/posixroot envp Foo_Bar
+$ ./posix2wx.exe -r c:/posixroot env Foo_Bar
 FOO_BAR=C:\posixroot\usr\local
 
 ```
