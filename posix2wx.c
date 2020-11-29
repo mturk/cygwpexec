@@ -20,10 +20,6 @@
 #include <wchar.h>
 #include <errno.h>
 #include <process.h>
-#include <fcntl.h>
-#include <io.h>
-#include <conio.h>
-#include <direct.h>
 
 #include "posix2wx.h"
 
@@ -32,10 +28,10 @@
 #if defined(_TEST_MODE)
 #undef _HAVE_DEBUG_OPTION
 #endif
+
 #if defined(_HAVE_DEBUG_OPTION)
 static int      debug     = 0;
 #endif
-
 static wchar_t *posixroot = 0;
 
 static const wchar_t *pathmatches[] = {

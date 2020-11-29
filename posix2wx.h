@@ -20,7 +20,7 @@
 #define PROJECT_VERSION_STR "2.0.5"
 #define PROJECT_VERSION_CSV  2,0,5
 
-#define PROJECT_COPYRIGHT "Copyright(c) 2020 Mladen Turk"
+#define PROJECT_COPYRIGHT   "Copyright(c) 1964-2020 Mladen Turk"
 
 #define PROJECT_LICENSE \
   "Licensed under the Apache License, Version 2.0 (the ""License""); "          \
