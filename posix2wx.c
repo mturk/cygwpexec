@@ -142,12 +142,12 @@ static void *xmalloc(size_t size)
 
 static wchar_t *xwalloc(size_t size)
 {
-    void *p = calloc(size, sizeof(wchar_t));
+    wchar_t *p = (wchar_t *)calloc(size, sizeof(wchar_t));
     if (p == 0) {
         _wperror(L"xwalloc");
         _exit(1);
     }
-    return (wchar_t *)p;
+    return p;
 }
 
 static wchar_t **waalloc(size_t size)
