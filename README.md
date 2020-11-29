@@ -63,17 +63,23 @@ be used as prefix to `/usr, /bin, /tmp` constructing an actual
 Windows path.
 
 
-If you installed your Cygwin inside `C:\cygwin64` use
-that for you `--root` or `POSIX_ROOT`
+For example, if Cygwin is installed inside `C:\cygwin64` you
+can set eatthe a environment variable
+
 ```
     $ export POSIX_ROOT=C:/cygwin64
     ...
     $ posix2wx ... -f1=/usr/local
-    or
-    $ posix2wx -r C:/cygwin64 ... -f1=/usr/local
-
-    --f1 parameter will evaluate to C:\cygwin64\usr\local
 ```
+
+... or declare it on command line
+
+```
+    $ posix2wx -r C:/cygwin64 ... -f1=/usr/local
+```
+
+In both cases `--f1 parameter` will evaluate to `C:\cygwin64\usr\local`
+
 
 ## License
 
