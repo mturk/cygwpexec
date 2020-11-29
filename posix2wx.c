@@ -23,7 +23,8 @@
 
 #include "posix2wx.h"
 
-#define IS_PSW(c) ((c) == L'/' || (c) == L'\\')
+#define IS_PSW(c)         ((c) == L'/' || (c) == L'\\')
+#define IS_EMPTY_WCS(_s)  ((_s == 0)   || (*(_s) == L'\0'))
 
 #if defined(_TEST_MODE)
 #undef _HAVE_DEBUG_OPTION
@@ -176,21 +177,27 @@ static wchar_t *xwcsndup(const wchar_t *s, size_t size)
     wchar_t *p;
     size_t   n;
 
-    if (s == 0)
+    if (IS_EMPTY_WCS(s) || (size == 0))
         return 0;
-
     n = wcslen(s);
     if (n < size)
         size = n;
     p = xwalloc(size + 2);
-    if (size > 0)
-        wmemcpy(p, s, size);
+    wmemcpy(p, s, size);
     return p;
 }
 
 static wchar_t *xwcsdup(const wchar_t *s)
 {
-    return xwcsndup(s, SHRT_MAX - 2);
+    wchar_t *p;
+    size_t   n;
+
+    if (IS_EMPTY_WCS(s))
+        return 0;
+    n = wcslen(s);
+    p = xwalloc(n + 2);
+    wmemcpy(p, s, n);
+    return p;
 }
 
 static wchar_t *xgetenv(const wchar_t *s)
