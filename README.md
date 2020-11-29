@@ -64,7 +64,7 @@ Windows path.
 
 
 For example, if Cygwin is installed inside `C:\cygwin64` you
-can set eatthe a environment variable
+can set either environment variable
 
 ```
     $ export POSIX_ROOT=C:/cygwin64
@@ -72,7 +72,7 @@ can set eatthe a environment variable
     $ posix2wx ... -f1=/usr/local
 ```
 
-... or declare it on command line
+Or declare it on command line
 
 ```
     $ posix2wx -r C:/cygwin64 ... -f1=/usr/local
