@@ -566,9 +566,8 @@ static void rmtrailingsep(wchar_t *s)
     }
 }
 
-static wchar_t *getposixroot(wchar_t *argroot)
+static wchar_t *getposixroot(wchar_t *r)
 {
-    wchar_t *r = argroot;
 
     if (r == 0) {
         const wchar_t **e = posixrenv;
