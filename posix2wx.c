@@ -100,7 +100,7 @@ static const wchar_t *posixrenv[] = {
 static int usage(int rv)
 {
     FILE *os = rv == 0 ? stdout : stderr;
-    fprintf(os, "Usage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", PROJECT_NAME);
+    fprintf(os, "\nUsage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", PROJECT_NAME);
     fprintf(os, "Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n");
 #if defined(_HAVE_DEBUG_OPTION)
     fprintf(os, " -d        print replaced arguments and environment\n");
@@ -110,17 +110,13 @@ static int usage(int rv)
     fprintf(os, " -h        print this screen and exit.\n");
     fprintf(os, " -w <DIR>  change working directory to DIR before calling PROGRAM\n");
     fprintf(os, " -r <DIR>  use DIR as posix root\n\n");
-    if (rv == 0)
-        fputs(PROJECT_LICENSE, os);
     return rv;
 }
 
-static int version(int license)
+static int version(void)
 {
     fputs(PROJECT_NAME " version " PROJECT_VERSION_STR \
           " (" __DATE__ " " __TIME__ ")\n", stdout);
-    if (license)
-        fputs(PROJECT_LICENSE, stdout);
     return 0;
 }
 
@@ -724,10 +720,8 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                     return invalidarg(wargv[i]);
                 switch (p[1]) {
                     case L'v':
-                        return version(0);
-                    break;
                     case L'V':
-                        return version(1);
+                        return version();
                     break;
                     case L'r':
                     case L'R':
