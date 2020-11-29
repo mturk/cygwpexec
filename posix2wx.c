@@ -586,7 +586,7 @@ static wchar_t *getposixroot(wchar_t *r)
     return r;
 }
 
-static int pxwmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
+static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
     int i;
     intptr_t rp;
@@ -820,5 +820,5 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     dupwenvp[dupenvc++] = xwcsconcat(L"POSIX_ROOT=", posixroot);
     xfree(opath);
 
-    return pxwmain(narg, dupwargv, dupenvc, dupwenvp);
+    return posixmain(narg, dupwargv, dupenvc, dupwenvp);
 }
