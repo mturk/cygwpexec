@@ -13,12 +13,12 @@
  *
  */
 
-#ifndef _CONFIG_H_INCLUDED_
-#define _CONFIG_H_INCLUDED_
+#ifndef _POSIX2WX_H_INCLUDED_
+#define _POSIX2WX_H_INCLUDED_
 
 #define PROJECT_NAME        "posix2wx"
-#define PROJECT_VERSION_STR "2.0.4"
-#define PROJECT_VERSION_CSV  2,0,4
+#define PROJECT_VERSION_STR "2.0.5"
+#define PROJECT_VERSION_CSV  2,0,5
 
 #define PROJECT_COPYRIGHT "Copyright(c) 2020 Mladen Turk"
 
@@ -34,4 +34,4 @@
   "limitations under the License."
 
 
-#endif /* _CONFIG_H_INCLUDED_ */
+#endif /* _POSIX2WX_H_INCLUDED_ */

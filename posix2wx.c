@@ -25,7 +25,7 @@
 #include <conio.h>
 #include <direct.h>
 
-#include "config.h"
+#include "posix2wx.h"
 
 #define IS_PSW(c) ((c) == L'/' || (c) == L'\\')
 
