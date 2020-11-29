@@ -70,7 +70,7 @@ static const wchar_t *pathfixed[] = {
     0
 };
 
-static const wchar_t *posixpenv[] = {
+static const wchar_t *removeenv[] = {
     L"ORIGINAL_PATH=",
     L"ORIGINAL_TEMP=",
     L"ORIGINAL_TMP=",
@@ -690,17 +690,17 @@ static int pxwmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 
 int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
 {
-    int i, j = 0;
+    int i;
     wchar_t **dupwargv = 0;
     wchar_t **dupwenvp = 0;
     wchar_t *crp       = 0;
     wchar_t *cwd       = 0;
     wchar_t *opath;
     wchar_t  nnp[4] = { L'\0', L'\0', L'\0', L'\0' };
-
-    int envc = 0;
-    int narg = 0;
-    int opts = 1;
+    int dupenvc = 0;
+    int envc    = 0;
+    int narg    = 0;
+    int opts    = 1;
 
     if (argc < 2)
         return usage(1);
@@ -790,13 +790,13 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         }
     }
     if (wenv != 0) {
-        while (wenv[j] != 0)
-            ++j;
+        while (wenv[envc] != 0)
+            ++envc;
     }
 
-    dupwenvp = waalloc(j + 3);
-    for (i = 0; i < j; i++) {
-        const wchar_t **e = posixpenv;
+    dupwenvp = waalloc(envc + 4);
+    for (i = 0; i < envc; i++) {
+        const wchar_t **e = removeenv;
         const wchar_t *p  = wenv[i];
 
         while (*e != 0) {
@@ -810,15 +810,15 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             e++;
         }
         if (p != 0)
-            dupwenvp[envc++] = xwcsdup(p);
+            dupwenvp[dupenvc++] = xwcsdup(p);
     }
 
     /**
      * Add aditional environment variables
      */
-    dupwenvp[envc++] = xwcsconcat(L"PATH=", opath);
-    dupwenvp[envc++] = xwcsconcat(L"POSIX_ROOT=", posixroot);
+    dupwenvp[dupenvc++] = xwcsconcat(L"PATH=", opath);
+    dupwenvp[dupenvc++] = xwcsconcat(L"POSIX_ROOT=", posixroot);
     xfree(opath);
 
-    return pxwmain(narg, dupwargv, envc, dupwenvp);
+    return pxwmain(narg, dupwargv, dupenvc, dupwenvp);
 }
