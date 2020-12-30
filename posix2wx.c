@@ -127,9 +127,6 @@ static int invalidarg(const wchar_t *arg)
     return usage(EINVAL);
 }
 
-/**
- * Malloc that causes process exit in case of ENOMEM
- */
 static void *xmalloc(size_t size)
 {
     void *p = calloc(size, 1);
@@ -203,7 +200,7 @@ static wchar_t *xwcsdup(const wchar_t *s)
 static wchar_t *xgetenv(const wchar_t *s)
 {
     wchar_t *d;
-    if (s == 0)
+    if (IS_EMPTY_WCS(s))
         return 0;
     if ((d = _wgetenv(s)) == 0)
         return 0;
@@ -215,7 +212,7 @@ static wchar_t *xgetenv(const wchar_t *s)
 
 static size_t xwcslen(const wchar_t *s)
 {
-    if (s == 0)
+    if (IS_EMPTY_WCS(s))
         return 0;
     else
         return wcslen(s);
@@ -229,7 +226,7 @@ static wchar_t *xwcsconcat(const wchar_t *s1, const wchar_t *s2)
 
     l1 = xwcslen(s1);
     l2 = xwcslen(s2);
-    /* Allocate the required string */
+
     res = xwalloc(l1 + l2 + 2);
     cp = res;
 
@@ -294,27 +291,24 @@ static int strstartswith(const wchar_t *str, const wchar_t *src)
 
 static int iswinpath(const wchar_t *s)
 {
-    if (s[0] == L'\\')
-        return 1;
-    if (s[0] < 128 && isalpha(s[0]) && s[1] == L':') {
-        if (IS_PSW(s[2]) || s[2] == L'\0')
+    if (s[0] < 128) {
+        if (s[0] == L'\\' && s[1] == L'\\')
             return 1;
+        if (isalpha(s[0]) && s[1] == L':') {
+            if (IS_PSW(s[2]) || s[2] == L'\0')
+                return 1;
+        }
     }
     return 0;
 }
 
-static int isrelpath(const wchar_t *s)
+static int isdotpath(const wchar_t *s)
 {
     int dots = 0;
 
-    if (IS_PSW(s[0]))
-        return 0;
-
-    if (s[0] < 128 && isalpha(s[0]) && s[1] == L':')
-        return 0;
     while ((*(s++) == L'.') && (++dots < 3)) {
         if (IS_PSW(*s) || *s == L'\0')
-            return 1;
+            return 300;
     }
     return 0;
 }
@@ -326,10 +320,8 @@ static int isposixpath(const wchar_t *str)
     const wchar_t  *ns;
 
     if (str[0] != L'/') {
-        if (isrelpath(str))
-            return 300;
-        else
-            return 0;
+        /* Check for .[/] or ..[/] */
+        return isdotpath(str);
     }
     if (str[1] == L'\0') {
         /* Posix root */
@@ -506,7 +498,7 @@ static wchar_t *posix2win(wchar_t *pp)
         fs2bs(rv + 3);
     }
     else if (m == 101) {
-        /* /x/... msys absolute path */
+        /* /x/... msys2 absolute path */
         windrive[0] = towupper(pp[1]);
         if (windrive[0] != *posixroot)
             return pp;
@@ -539,13 +531,19 @@ static wchar_t *convert2win(const wchar_t *str)
 
     if (*str == L'\'' || wcschr(str, L'/') == 0)
         return 0;
-    pa = splitpath(str, &tokens);
-    for (i = 0; i < tokens; i++) {
-        wchar_t *pp = pa[i];
-        pa[i] = posix2win(pp);
+    if (iswinpath(str)) {
+        rv = xwcsdup(str);
+        fs2bs(rv);
     }
-    rv = mergepath(pa);
-    wafree(pa);
+    else {
+        pa = splitpath(str, &tokens);
+        for (i = 0; i < tokens; i++) {
+            wchar_t *pp = pa[i];
+            pa[i] = posix2win(pp);
+        }
+        rv = mergepath(pa);
+        wafree(pa);
+    }
     return rv;
 }
 
@@ -706,11 +704,16 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         return usage(1);
     dupwargv = waalloc(argc);
     for (i = 1; i < argc; i++) {
+        const wchar_t *p = wargv[i];
+        if (IS_EMPTY_WCS(p)) {
+            /**
+             * We do not support empty arguments
+             */
+            return invalidarg(L"empty argument");
+        }
         if (opts) {
-            const wchar_t *p = wargv[i];
             /**
              * Simple argument parsing
-             *
              */
             if (cwd == nnp) {
                 cwd = xwcsdup(p);
@@ -723,7 +726,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
 
             if (p[0] == L'-') {
                 if (p[1] == L'\0' || p[2] != L'\0')
-                    return invalidarg(wargv[i]);
+                    return invalidarg(p);
                 switch (p[1]) {
                     case L'v':
                     case L'V':
@@ -756,7 +759,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             }
             opts = 0;
         }
-        dupwargv[narg++] = xwcsdup(wargv[i]);
+        dupwargv[narg++] = xwcsdup(p);
     }
     if ((cwd == nnp) || (crp == nnp)) {
         fprintf(stderr, "Missing required parameter value\n\n");
@@ -773,7 +776,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
 #if defined(_HAVE_DEBUG_OPTION)
     if (debug) {
-        printf("%s versiom %s (%s)\n",
+        printf("%s version %s (%s)\n",
                 PROJECT_NAME, PROJECT_VERSION_STR,
                 __DATE__ " " __TIME__);
         wprintf(L"POSIX_ROOT : %s\n\n", posixroot);
@@ -814,7 +817,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
 
     /**
-     * Add aditional environment variables
+     * Add additional environment variables
      */
     dupwenvp[dupenvc++] = xwcsconcat(L"PATH=", opath);
     dupwenvp[dupenvc++] = xwcsconcat(L"POSIX_ROOT=", posixroot);

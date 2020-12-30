@@ -16,11 +16,24 @@
 #ifndef _POSIX2WX_H_INCLUDED_
 #define _POSIX2WX_H_INCLUDED_
 
-#define PROJECT_NAME        "posix2wx"
-#define PROJECT_VERSION_STR "2.0.5"
-#define PROJECT_VERSION_CSV  2,0,5
+/**
+ * Disable or reduce the frequency of...
+ *   C4100: unreferenced formal parameter
+ *   C4702: unreachable code
+ *   C4244: int to char/short - precision loss
+ */
+#if defined(_MSC_VER)
+# pragma warning(disable: 4100 4244 4702)
+#endif
 
-#define PROJECT_COPYRIGHT   "Copyright(c) 1964-2020 Mladen Turk"
+#define PROJECT_NAME            "posix2wx"
+#define PROJECT_VERSION_STR     "2.0.6"
+#define PROJECT_VERSION_CSV      2,0,6
+
+#define PROJECT_COPYRIGHT       "Copyright(c) 1964-2021 Mladen Turk"
+#define PROJECT_COMPANY_NAME    "Acme Corporation"
+#define PROJECT_DESCRIPTION     "Run windows applications under posix environment"
+
 
 #define PROJECT_LICENSE \
   "Licensed under the Apache License, Version 2.0 (the ""License""); "          \
