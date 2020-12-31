@@ -20,6 +20,8 @@
 #include <wchar.h>
 #include <errno.h>
 #include <process.h>
+#include <fcntl.h>
+#include <io.h>
 
 #include "posix2wx.h"
 
@@ -33,6 +35,7 @@
 #if defined(_HAVE_DEBUG_OPTION)
 static int      debug     = 0;
 #endif
+static int      execmode  = _P_WAIT;
 static wchar_t *posixroot = 0;
 
 static const wchar_t *pathmatches[] = {
@@ -584,10 +587,24 @@ static wchar_t *getposixroot(wchar_t *r)
     return r;
 }
 
+static void __cdecl xstdinrw(void *p)
+{
+    unsigned char buf[BUFSIZ];
+    int *fds = (int *)p;
+    int nr;
+
+    while ((nr = _read(fds[0], buf, BUFSIZ)) > 0) {
+        _write(fds[1], buf, nr);
+    }
+}
+
 static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
-    int i;
+    int i, rc = 0;
     intptr_t rp;
+    int orgstdin;
+    int stdinpipe[2];
+
 
 #if defined(_HAVE_DEBUG_OPTION)
     if (debug)
@@ -672,18 +689,53 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         return 0;
     }
     fprintf(stderr, "unknown test %S .. use arg or env\n", wargv[0]);
-    rp = 1;
+    rc = EINVAL;
 #else
-    _flushall();
-    rp = _wspawnvpe(_P_WAIT, wargv[0], wargv, wenvp);
-    if (rp == (intptr_t)-1) {
-        i = errno;
-        fwprintf(stderr, L"Cannot execute program: %s\nFatal error: %s\n\n",
-                 wargv[0], _wcserror(i));
-        return usage(i);
+    if (execmode == _P_NOWAIT) {
+        if(_pipe(stdinpipe, BUFSIZ, O_NOINHERIT) == -1) {
+            rc = errno;
+            _wperror(L"Fatal error _pipe()");
+            return rc;
+        }
+        orgstdin = _dup(_fileno(stdin));
+        if(_dup2(stdinpipe[0], _fileno(stdin)) != 0) {
+            rc = errno;
+            _wperror(L"Fatal error _dup2()");
+            return rc;
+        }
+        _close(stdinpipe[0]);
     }
+    _flushall();
+    rp = _wspawnvpe(execmode, wargv[0], wargv, wenvp);
+    if (rp == (intptr_t)-1) {
+        rc = errno;
+        fwprintf(stderr, L"Cannot execute program: %s\nFatal error: %s\n\n",
+                 wargv[0], _wcserror(rc));
+        return usage(rc);
+    }
+    if (execmode == _P_NOWAIT) {
+        /*
+         * Restore original stdin handle
+         */
+        if(_dup2(orgstdin, _fileno(stdin)) != 0) {
+            rc = errno;
+            _wperror(L"Fatal error _dup2()");
+            return rc;
+        }
+        _close(orgstdin);
+        /* Create stdin R/W thread */
+        stdinpipe[0] = _fileno(stdin);
+        _beginthread(xstdinrw, 0, (void *)stdinpipe);
+        if (_cwait(&rc, rp, _WAIT_CHILD) == (intptr_t)-1) {
+            rc = errno;
+            fwprintf(stderr, L"Execute failed: %s\nFatal error: %s\n\n",
+                    wargv[0], _wcserror(rc));
+            return usage(rc);
+        }
+    }
+
 #endif
-    return (int)rp;
+    return rc;
 }
 
 int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
@@ -728,17 +780,9 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                 if (p[1] == L'\0' || p[2] != L'\0')
                     return invalidarg(p);
                 switch (p[1]) {
-                    case L'v':
-                    case L'V':
-                        return version();
-                    break;
-                    case L'r':
-                    case L'R':
-                        crp = nnp;
-                    break;
-                    case L'w':
-                    case L'W':
-                        cwd = nnp;
+                    case L'a':
+                    case L'A':
+                        execmode = _P_NOWAIT;
                     break;
 #if defined(_HAVE_DEBUG_OPTION)
                     case L'd':
@@ -750,6 +794,18 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                     case L'H':
                     case L'?':
                         return usage(0);
+                    break;
+                    case L'r':
+                    case L'R':
+                        crp = nnp;
+                    break;
+                    case L'v':
+                    case L'V':
+                        return version();
+                    break;
+                    case L'w':
+                    case L'W':
+                        cwd = nnp;
                     break;
                     default:
                         return invalidarg(wargv[i]);
