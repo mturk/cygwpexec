@@ -104,16 +104,16 @@ static const wchar_t *posixrenv[] = {
 static int usage(int rv)
 {
     FILE *os = rv == 0 ? stdout : stderr;
-    fprintf(os, "\nUsage %s [OPTIONS]... PROGRAM [ARGUMENTS]...\n", PROJECT_NAME);
-    fprintf(os, "Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n");
+    fputs("\nUsage " PROJECT_NAME " [OPTIONS]... PROGRAM [ARGUMENTS]...\n", os);
+    fputs("Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n", os);
 #if defined(_HAVE_DEBUG_OPTION)
-    fprintf(os, " -d        print replaced arguments and environment\n");
-    fprintf(os, "           instead executing PROGRAM.\n");
+    fputs(" -d        print replaced arguments and environment\n", os);
+    fputs("           instead executing PROGRAM.\n", os);
 #endif
-    fprintf(os, " -v        print version information and exit.\n");
-    fprintf(os, " -h        print this screen and exit.\n");
-    fprintf(os, " -w <DIR>  change working directory to DIR before calling PROGRAM\n");
-    fprintf(os, " -r <DIR>  use DIR as posix root\n\n");
+    fputs(" -v        print version information and exit.\n", os);
+    fputs(" -h        print this screen and exit.\n", os);
+    fputs(" -w <DIR>  change working directory to DIR before calling PROGRAM\n", os);
+    fputs(" -r <DIR>  use DIR as posix root\n\n", os);
     return rv;
 }
 
@@ -161,7 +161,7 @@ static void xfree(void *m)
         free(m);
 }
 
-static void wafree(wchar_t **array)
+static void waafree(wchar_t **array)
 {
     wchar_t **ptr = array;
 
@@ -169,22 +169,7 @@ static void wafree(wchar_t **array)
         return;
     while (*ptr != 0)
         xfree(*(ptr++));
-    xfree(array);
-}
-
-static wchar_t *xwcsndup(const wchar_t *s, size_t size)
-{
-    wchar_t *p;
-    size_t   n;
-
-    if (IS_EMPTY_WCS(s) || (size == 0))
-        return 0;
-    n = wcslen(s);
-    if (n < size)
-        size = n;
-    p = xwalloc(size + 2);
-    wmemcpy(p, s, size);
-    return p;
+    free(array);
 }
 
 static wchar_t *xwcsdup(const wchar_t *s)
@@ -203,11 +188,11 @@ static wchar_t *xwcsdup(const wchar_t *s)
 static wchar_t *xgetenv(const wchar_t *s)
 {
     wchar_t *d;
+
     if (IS_EMPTY_WCS(s))
         return 0;
-    if ((d = _wgetenv(s)) == 0)
-        return 0;
-    if (*d == L'\0')
+    d = _wgetenv(s);
+    if (IS_EMPTY_WCS(d))
         return 0;
     else
         return xwcsdup(d);
@@ -224,8 +209,8 @@ static size_t xwcslen(const wchar_t *s)
 static wchar_t *xwcsconcat(const wchar_t *s1, const wchar_t *s2)
 {
     wchar_t *cp, *res;
-    size_t l1 = 0;
-    size_t l2 = 0;
+    size_t l1;
+    size_t l2;
 
     l1 = xwcslen(s1);
     l2 = xwcslen(s2);
@@ -391,75 +376,65 @@ static void fs2bs(wchar_t *s)
 static wchar_t **splitpath(const wchar_t *s, int *tokens)
 {
     int c = 0;
-    wchar_t **sa = 0;
+    int x = 0;
+    wchar_t **sa;
     const wchar_t *b;
     const wchar_t *e;
 
     e = b = s;
     while (*e != L'\0') {
         if (*e++ == L':')
-            c++;
+            x++;
     }
-    sa = waalloc(c + 2);
-    if (c > 0) {
-        c  = 0;
+    sa = waalloc(x + 1);
+    if (x > 0) {
         while ((e = wcschr(b, L':')) != 0) {
-            int cn = 1;
-            if (iswinpath(b)) {
-                /**
-                 * We have <ALPHA>:[/\]
-                 */
-                sa[c++] = xwcsdup(b);
-                *tokens = c;
-                return sa;
+            wchar_t *p;
+            int cn   = 1;
+            size_t n = (size_t)(e - b);
+
+            p = xwalloc(n + 2);
+            if (n == 0) {
+                /* Preserve leading or multiple colons */
+                p[n] = L':';
             }
             else {
-                wchar_t *p;
+                wmemcpy(p, b, n);
                 /* Is the previous token path or flag */
-                p = xwcsndup(b, (size_t)(e - b));
                 if (isposixpath(p)) {
                     while (*(e + cn) == L':') {
-                        /* Drop multiple colons */
+                        /* Drop multiple trailing colons */
                         cn++;
                     }
                 }
                 else {
-                    /**
-                     * Special case for /foo:next
-                     * result is /foo:
-                     * For /foo/bar:path
-                     * result is /foo/bar
-                     */
-                    if (*p == L'/' && (wcschr(p + 1, L'/') == 0))
-                        wcscat(p, L":");
+                     /* Preserve colon for unresolved paths */
+                    p[n] = L':';
                 }
-                sa[c++] = p;
-                s = e + cn;
             }
-            b = e + cn;
+            sa[c++] = p;
+            b = s = e + cn;
+            if (*b == L'\0')
+                break;
         }
     }
-    if (*s != L'\0') {
+    if (*s != L'\0')
         sa[c++] = xwcsdup(s);
-    }
+
     *tokens = c;
     return sa;
 }
 
-static wchar_t *mergepath(wchar_t **paths)
+static wchar_t *mergepath(const wchar_t **pp)
 {
     int  i, sc = 0;
     size_t len = 0;
     wchar_t  *rv;
-    wchar_t **pp;
 
-    pp = paths;
-    while (*pp != 0) {
-        len += wcslen(*pp) + 1;
-        pp++;
+    for (i = 0; pp[i] != 0; i++) {
+        len += wcslen(pp[i]) + 1;
     }
-    rv = xwalloc(len + 1);
-    pp = paths;
+    rv = xwalloc(len + 2);
     for (i = 0; pp[i] != 0; i++) {
         len = wcslen(pp[i]);
         if (len > 0) {
@@ -474,6 +449,23 @@ static wchar_t *mergepath(wchar_t **paths)
         }
     }
     return rv;
+}
+
+/**
+ * Remove trailing backslash and path separator(s)
+ * so that we don't have problems with quoting
+ * or appending
+ */
+static void rmtrailingsep(wchar_t *s)
+{
+    int i = (int)xwcslen(s);
+
+    while (--i > 1) {
+        if (IS_PSW(s[i]) || s[1] == L';')
+            s[i] = L'\0';
+        else
+            break;
+    }
 }
 
 static wchar_t *posix2win(wchar_t *pp)
@@ -528,43 +520,30 @@ static wchar_t *posix2win(wchar_t *pp)
 
 static wchar_t *convert2win(const wchar_t *str)
 {
-    wchar_t *rv;
-    wchar_t **pa;
-    int i, tokens;
+    wchar_t *wp;
 
-    if (*str == L'\'' || wcschr(str, L'/') == 0)
+    if ((*str == L'\'') || (wcschr(str, L'/') == 0))
         return 0;
     if (iswinpath(str)) {
-        rv = xwcsdup(str);
-        fs2bs(rv);
+        wp = xwcsdup(str);
+        fs2bs(wp);
     }
     else {
-        pa = splitpath(str, &tokens);
-        for (i = 0; i < tokens; i++) {
-            wchar_t *pp = pa[i];
-            pa[i] = posix2win(pp);
+        int i, n;
+        wchar_t **pa = splitpath(str, &n);
+
+        for (i = 0; i < n; i++) {
+            wchar_t *e = pa[i];
+            pa[i] = posix2win(e);
+            if (pa[i] == e) {
+               break;
+            }
+            rmtrailingsep(pa[i]);
         }
-        rv = mergepath(pa);
-        wafree(pa);
+        wp = mergepath(pa);
+        waafree(pa);
     }
-    return rv;
-}
-
-/**
- * Remove trailing backslash and path separator(s)
- * so that we don't have problems with quoting
- * or appending
- */
-static void rmtrailingsep(wchar_t *s)
-{
-    int i = (int)xwcslen(s);
-
-    while (--i > 1) {
-        if (IS_PSW(s[i]) || s[1] == L';')
-            s[i] = L'\0';
-        else
-            break;
-    }
+    return wp;
 }
 
 static wchar_t *getposixroot(wchar_t *r)
@@ -602,7 +581,7 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 {
     int i, rc = 0;
     intptr_t rp;
-    int orgstdin;
+    int orgstdin = -1;
     int stdinpipe[2];
 
 
@@ -616,7 +595,7 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         if (debug)
             wprintf(L"[%2d] : %s\n", i, a);
 #endif
-        if (wcschr(a + 1, L'/') == 0)
+        if (wcschr(a, L'/') == 0)
             continue;
         if (wcslen(a) > 3) {
             wchar_t *p;
@@ -641,6 +620,7 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             }
         }
     }
+
 #if defined(_HAVE_DEBUG_OPTION)
     if (debug)
         wprintf(L"\nEnvironment variables (%d):\n", envc);
@@ -674,6 +654,7 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         return 0;
     }
 #endif
+
     qsort((void *)wenvp, envc, sizeof(wchar_t *), envsort);
 #if defined(_TEST_MODE)
     if (wcscmp(wargv[0], L"arg") == 0) {
@@ -714,9 +695,7 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         return usage(rc);
     }
     if (execmode == _P_NOWAIT) {
-        /*
-         * Restore original stdin handle
-         */
+        /* Restore original stdin handle */
         if(_dup2(orgstdin, _fileno(stdin)) != 0) {
             rc = errno;
             _wperror(L"Fatal error _dup2()");
@@ -771,7 +750,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
                 cwd = xwcsdup(p);
                 continue;
             }
-            else if (crp == nnp) {
+            if (crp == nnp) {
                 crp = xwcsdup(p);
                 continue;
             }
@@ -818,24 +797,23 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
         dupwargv[narg++] = xwcsdup(p);
     }
     if ((cwd == nnp) || (crp == nnp)) {
-        fprintf(stderr, "Missing required parameter value\n\n");
+        fputs("Missing required parameter value\n\n", stderr);
         return usage(1);
     }
     if ((opath = xgetenv(L"PATH")) == 0) {
-        fprintf(stderr, "Missing PATH environment variable\n\n");
+        fputs("Missing PATH environment variable\n\n", stderr);
         return usage(1);
     }
     rmtrailingsep(opath);
     if ((posixroot = getposixroot(crp)) == 0) {
-        fprintf(stderr, "Cannot determine POSIX_ROOT\n\n");
+        fputs("Cannot determine POSIX_ROOT\n\n", stderr);
         return usage(1);
     }
 #if defined(_HAVE_DEBUG_OPTION)
     if (debug) {
-        printf("%s version %s (%s)\n",
-                PROJECT_NAME, PROJECT_VERSION_STR,
-                __DATE__ " " __TIME__);
-        wprintf(L"POSIX_ROOT : %s\n\n", posixroot);
+        printf(PROJECT_NAME " version %s (%s)\n",
+               PROJECT_VERSION_STR, __DATE__ " " __TIME__);
+        printf("         root    %S\n\n", posixroot);
     }
 #endif
     if (cwd != 0) {
