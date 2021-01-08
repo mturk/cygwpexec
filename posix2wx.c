@@ -209,22 +209,23 @@ static size_t xwcslen(const wchar_t *s)
 
 static wchar_t *xwcsconcat(const wchar_t *s1, const wchar_t *s2)
 {
-    wchar_t *cp, *res;
+    wchar_t *cp, *rv;
     size_t l1;
     size_t l2;
 
     l1 = xwcslen(s1);
     l2 = xwcslen(s2);
 
-    res = xwalloc(l1 + l2 + 2);
-    cp = res;
+    if ((l1 + l2) == 0)
+        return 0;
+    cp = rv = xwalloc(l1 + l2 + 2);
 
     if(l1 > 0)
         wmemcpy(cp, s1, l1);
     cp += l1;
     if(l2 > 0)
         wmemcpy(cp, s2, l2);
-    return res;
+    return rv;
 }
 
 /**
