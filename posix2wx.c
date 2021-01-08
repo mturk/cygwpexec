@@ -96,7 +96,7 @@ static const wchar_t *removeenv[] = {
 static const wchar_t *posixrenv[] = {
     L"POSIX_ROOT",
     L"CYGWIN_ROOT",
-    L"HOMEDRIVE",
+    L"HOMEPATH",
     0
 };
 
