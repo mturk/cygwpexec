@@ -638,7 +638,9 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 #endif
         if ((p = wcschr(e, L'=')) != 0) {
             wchar_t *v = p + 1;
-            if ((wcslen(v) > 3) && ((p = convert2win(v)) != 0)) {
+            if (wcschr(v, L'/') == 0)
+                continue;
+            if ((p = convert2win(v)) != 0) {
                 *v = L'\0';
                 wenvp[i] = xwcsconcat(e, p);
                 xfree(e);
@@ -829,8 +831,11 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             return usage(i);
         }
     }
-    while (wenv[envc] != 0)
+    while (wenv[envc] != 0) {
+        if (IS_EMPTY_WCS(wenv[envc]))
+            return invalidarg(L"empty environment variable");
         ++envc;
+    }
 
     dupwenvp = waalloc(envc + 2);
     for (i = 0; i < envc; i++) {
