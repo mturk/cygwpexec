@@ -603,12 +603,12 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
         if (wcslen(a) > 3) {
             wchar_t *p;
             wchar_t *v = cmdoptionval(a);
-            if (v == 0)
+            if (IS_EMPTY_WCS(v))
                 p = convert2win(a);
             else
                 p = convert2win(v);
             if (p != 0) {
-                if (v == 0)
+                if (IS_EMPTY_WCS(v))
                     wargv[i] = p;
                 else {
                     *v = L'\0';
