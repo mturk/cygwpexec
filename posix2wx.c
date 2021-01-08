@@ -640,7 +640,7 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
             wchar_t *v = p + 1;
             if (wcschr(v, L'/') == 0)
                 continue;
-            if ((p = convert2win(v)) != 0) {
+            if ((wcslen(v) > 3) && ((p = convert2win(v)) != 0)) {
                 *v = L'\0';
                 wenvp[i] = xwcsconcat(e, p);
                 xfree(e);
