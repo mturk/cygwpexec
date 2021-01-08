@@ -365,7 +365,7 @@ static int envsort(const void *arg1, const void *arg2)
     return _wcsicoll(*((wchar_t **)arg1), *((wchar_t **)arg2));
 }
 
-static void fs2bs(wchar_t *s)
+static void xwinpathsep(wchar_t *s)
 {
     while (*s != L'\0') {
         if (*s == L'/')
@@ -485,14 +485,14 @@ static wchar_t *posix2win(wchar_t *pp)
     if (m == 0) {
         /* Not a posix path */
         if (iswinpath(pp))
-            fs2bs(pp);
+            xwinpathsep(pp);
         return pp;
     }
     else if (m == 100) {
         /* /cygdrive/x/... absolute path */
         windrive[0] = towupper(pp[10]);
         rv = xwcsconcat(windrive, pp + 12);
-        fs2bs(rv + 3);
+        xwinpathsep(rv + 3);
     }
     else if (m == 101) {
         /* /x/... msys2 absolute path */
@@ -500,10 +500,10 @@ static wchar_t *posix2win(wchar_t *pp)
         if (windrive[0] != *posixroot)
             return pp;
         rv = xwcsconcat(windrive, pp + 3);
-        fs2bs(rv + 3);
+        xwinpathsep(rv + 3);
     }
     else if (m == 300) {
-        fs2bs(pp);
+        xwinpathsep(pp);
         return pp;
     }
     else if (m == 301) {
@@ -513,7 +513,7 @@ static wchar_t *posix2win(wchar_t *pp)
         rv = xwcsdup(L"NUL");
     }
     else {
-        fs2bs(pp);
+        xwinpathsep(pp);
         rv = xwcsconcat(posixroot, pp);
     }
     xfree(pp);
@@ -528,7 +528,7 @@ static wchar_t *convert2win(const wchar_t *str)
         return 0;
     if (iswinpath(str)) {
         wp = xwcsdup(str);
-        fs2bs(wp);
+        xwinpathsep(wp);
     }
     else {
         int i, n;
@@ -561,7 +561,7 @@ static wchar_t *getposixroot(wchar_t *r)
     }
     if (r != 0) {
         rmtrailingsep(r);
-        fs2bs(r);
+        xwinpathsep(r);
         if (isalpha(*r & 0x7F))
             *r = towupper(*r);
     }
