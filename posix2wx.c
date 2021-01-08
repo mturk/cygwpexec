@@ -106,6 +106,7 @@ static int usage(int rv)
     FILE *os = rv == 0 ? stdout : stderr;
     fputs("\nUsage " PROJECT_NAME " [OPTIONS]... PROGRAM [ARGUMENTS]...\n", os);
     fputs("Execute PROGRAM [ARGUMENTS]...\n\nOptions are:\n", os);
+    fputs(" -a        Use async execution mode.\n", os);
 #if defined(_HAVE_DEBUG_OPTION)
     fputs(" -d        print replaced arguments and environment\n", os);
     fputs("           instead executing PROGRAM.\n", os);
@@ -586,8 +587,10 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
 
 
 #if defined(_HAVE_DEBUG_OPTION)
-    if (debug)
-        wprintf(L"Arguments (%d):\n", argc);
+    if (debug) {
+        wprintf(L"Posix root: %s\n\n", posixroot);
+        wprintf(L"Arguments (%d):\n",  argc);
+    }
 #endif
     for (i = 0; i < argc; i++) {
         wchar_t *a = wargv[i];
@@ -811,9 +814,8 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     }
 #if defined(_HAVE_DEBUG_OPTION)
     if (debug) {
-        printf(PROJECT_NAME " version %s (%s)\n",
+        printf(PROJECT_NAME " version %s (%s)\n\n",
                PROJECT_VERSION_STR, __DATE__ " " __TIME__);
-        printf("         root    %S\n\n", posixroot);
     }
 #endif
     if (cwd != 0) {
