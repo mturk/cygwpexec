@@ -729,10 +729,10 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     wchar_t *crp       = 0;
     wchar_t *cwd       = 0;
     wchar_t *opath;
-    wchar_t  nnp[4] = { L'\0', L'\0', L'\0', L'\0' };
+    wchar_t  nnp[4]    = { L'\0', L'\0', L'\0', L'\0' };
     int dupenvc = 0;
+    int duparcg = 0;
     int envc    = 0;
-    int narg    = 0;
     int opts    = 1;
 
     if (argc < 2)
@@ -800,7 +800,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             }
             opts = 0;
         }
-        dupwargv[narg++] = xwcsdup(p);
+        dupwargv[duparcg++] = xwcsdup(p);
     }
     if ((cwd == nnp) || (crp == nnp)) {
         fputs("Missing required parameter value\n\n", stderr);
@@ -862,5 +862,5 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
     dupwenvp[dupenvc++] = xwcsconcat(L"PATH=", opath);
     xfree(opath);
 
-    return posixmain(narg, dupwargv, dupenvc, dupwenvp);
+    return posixmain(duparcg, dupwargv, dupenvc, dupwenvp);
 }
