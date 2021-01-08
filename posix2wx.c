@@ -628,7 +628,7 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     if (debug)
         wprintf(L"\nEnvironment variables (%d):\n", envc);
 #endif
-    for (i = 0; i < (envc - 2); i++) {
+    for (i = 0; i < (envc - 1); i++) {
         wchar_t *p;
         wchar_t *e = wenvp[i];
 #if defined(_HAVE_DEBUG_OPTION)
@@ -651,8 +651,6 @@ static int posixmain(int argc, wchar_t **wargv, int envc, wchar_t **wenvp)
     }
 #if defined(_HAVE_DEBUG_OPTION)
     if (debug) {
-        wprintf(L"\n[%2d] : %s\n", i, wenvp[i]);
-        i++;
         wprintf(L"[%2d] : %s\n", i, wenvp[i]);
         return 0;
     }
@@ -833,7 +831,7 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             ++envc;
     }
 
-    dupwenvp = waalloc(envc + 4);
+    dupwenvp = waalloc(envc + 2);
     for (i = 0; i < envc; i++) {
         const wchar_t **e = removeenv;
         const wchar_t *p  = wenv[i];
@@ -856,7 +854,6 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
      * Add additional environment variables
      */
     dupwenvp[dupenvc++] = xwcsconcat(L"PATH=", opath);
-    dupwenvp[dupenvc++] = xwcsconcat(L"POSIX_ROOT=", posixroot);
     xfree(opath);
 
     return posixmain(narg, dupwargv, dupenvc, dupwenvp);
