@@ -312,13 +312,12 @@ static int isposixpath(const wchar_t *str)
         /* Check for .[/] or ..[/] */
         return isdotpath(str);
     }
-    if (str[1] == L'\0') {
-        /* Posix root */
+
+    if (str[1] == L'\0')
         return 301;
-    }
-    if (wcscmp(str, L"/dev/null") == 0) {
+    if (wcscmp(str, L"/dev/null") == 0)
         return 302;
-    }
+
     ns = wcschr(str + 1, L'/');
     if (ns == 0) {
         /* No additional slashes */
@@ -384,7 +383,7 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
 
     e = b = s;
     while (*e != L'\0') {
-        if (*e++ == L':')
+        if (*(e++) == L':')
             x++;
     }
     sa = waalloc(x + 1);
@@ -409,7 +408,7 @@ static wchar_t **splitpath(const wchar_t *s, int *tokens)
                     }
                 }
                 else {
-                     /* Preserve colon for unresolved paths */
+                    /* Preserve colon for unresolved paths */
                     p[n] = L':';
                 }
             }
