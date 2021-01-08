@@ -735,6 +735,8 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
 
     if (argc < 2)
         return usage(1);
+    if (wenv == 0)
+        return invalidarg(L"missing environment");
     dupwargv = waalloc(argc);
     for (i = 1; i < argc; i++) {
         const wchar_t *p = wargv[i];
@@ -827,10 +829,8 @@ int wmain(int argc, const wchar_t **wargv, const wchar_t **wenv)
             return usage(i);
         }
     }
-    if (wenv != 0) {
-        while (wenv[envc] != 0)
-            ++envc;
-    }
+    while (wenv[envc] != 0)
+        ++envc;
 
     dupwenvp = waalloc(envc + 2);
     for (i = 0; i < envc; i++) {
