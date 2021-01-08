@@ -430,26 +430,27 @@ static wchar_t *mergepath(const wchar_t **pp)
 {
     int  i, sc = 0;
     size_t len = 0;
-    wchar_t  *rv;
+    wchar_t  *r, *p;
 
     for (i = 0; pp[i] != 0; i++) {
         len += wcslen(pp[i]) + 1;
     }
-    rv = xwalloc(len + 2);
+    r = p = xwalloc(len + 2);
     for (i = 0; pp[i] != 0; i++) {
         len = wcslen(pp[i]);
         if (len > 0) {
-            if (sc++ > 0) {
-                wcscat(rv, L";");
-            }
-            if (pp[i][len - 1] == L':') {
-                /* do not add semicolon before next path */
+            if (sc)
+                *(p++) = L';';
+            /* do not add semicolon before next path */
+            if (pp[i][len - 1] == L':')
                 sc = 0;
-            }
-            wcscat(rv, pp[i]);
+            else
+                sc = 1;
+            wmemcpy(p, pp[i], len);
+            p += len;
         }
     }
-    return rv;
+    return r;
 }
 
 /**
