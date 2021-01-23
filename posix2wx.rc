@@ -36,7 +36,7 @@ BEGIN
             VALUE "InternalName",     PROJECT_NAME
             VALUE "LegalCopyright",   PROJECT_COPYRIGHT
             VALUE "OriginalFilename", PROJECT_NAME ".exe"
-            VALUE "ProductName",      PROJECT_NAME
+            VALUE "ProductName",      PROJECT_PNAME
             VALUE "ProductVersion",   PROJECT_VERSION_STR
         END
     END

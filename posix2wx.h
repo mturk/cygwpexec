@@ -27,8 +27,9 @@
 #endif
 
 #define PROJECT_NAME            "posix2wx"
-#define PROJECT_VERSION_STR     "2.0.6"
-#define PROJECT_VERSION_CSV      2,0,6
+#define PROJECT_PNAME           "Posix2Wx"
+#define PROJECT_VERSION_STR     "2.0.7"
+#define PROJECT_VERSION_CSV      2,0,7
 
 #define PROJECT_COPYRIGHT       "Copyright(c) 1964-2021 Mladen Turk"
 #define PROJECT_COMPANY_NAME    "Acme Corporation"
